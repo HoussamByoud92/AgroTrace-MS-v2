@@ -109,6 +109,27 @@ def predict_water_needs(input_data: WaterPredictionInput):
         "recommendation": rec
     }
 
+@app.post("/train")
+def train_model(file_path: Optional[str] = Body(None, embed=True)):
+    """
+    Trigger model training. 
+    In reality, this would start a Celery task or Airflow DAG.
+    """
+    return {
+        "status": "Training Initiated",
+        "model_version": "v1.2-pending",
+        "estimated_time": "5 minutes"
+    }
+
+@app.post("/upload-data")
+def upload_data(data: dict = Body(...)):
+    """
+    Upload CSV data (parsed) or raw content to store for training.
+    """
+    # In a real app, save to MinIO or DB
+    rows = len(data.get("rows", []))
+    return {"status": "Data Received", "rows_processed": rows}
+
 @app.get("/health")
 def health():
     return {"status": "ok", "db": engine is not None}

@@ -124,6 +124,23 @@ def calculate_recommendation(ctx: CropContext):
         "details": result_text
     }
 
+@app.get("/history")
+def get_history(limit: int = 10):
+    if engine:
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(text(f"""
+                    SELECT id, zone_id, timestamp, recommendation, water_amount_mm, source
+                    FROM irrigation_plans
+                    ORDER BY timestamp DESC
+                    LIMIT {limit}
+                """))
+                return [dict(row._mapping) for row in result]
+        except Exception as e:
+            print(f"History fetch error: {e}")
+            return []
+    return []
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

@@ -157,6 +157,83 @@ def upload_image(
             producer.send('image_events', value=event)
         
         return {"status": "uploaded", "filename": unique_filename}
-
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Simulation Logic
+simulation_active = False
+simulation_thread = None
+
+def run_simulation():
+    global simulation_active
+    import random
+    
+    print("Starting sensor simulation...")
+    sensors = ["sensor-01", "sensor-02", "sensor-03"]
+    
+    while simulation_active:
+        for s_id in sensors:
+            if not simulation_active: break
+            
+            data = SensorData(
+                sensor_id=s_id,
+                timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                temperature=20 + random.uniform(-5, 10),
+                humidity=50 + random.uniform(-10, 20),
+                soil_moisture=30 + random.uniform(-5, 40),
+                light_intensity=500 + random.uniform(-100, 500),
+                location_lat=45.0 + random.uniform(-0.01, 0.01),
+                location_lon=-0.5 + random.uniform(-0.01, 0.01)
+            )
+            
+            # Call internal ingest directly or via requests (internal is better here)
+            ingest_sensor_data(data)
+            
+        time.sleep(2) # Generate every 2 seconds
+        
+    print("Simulation stopped.")
+
+@app.post("/simulate/start")
+def start_simulation():
+    global simulation_active, simulation_thread
+    if simulation_active:
+        return {"status": "Already running"}
+    
+    simulation_active = True
+    import threading
+    simulation_thread = threading.Thread(target=run_simulation)
+    simulation_thread.start()
+    return {"status": "Simulation started"}
+
+@app.post("/simulate/stop")
+def stop_simulation():
+    global simulation_active
+    simulation_active = False
+    return {"status": "Simulation stopping..."}
+
+@app.get("/recent")
+def get_recent_readings(limit: int = 20):
+    if engine:
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(text(f"""
+                    SELECT time, sensor_id, temperature, humidity, soil_moisture 
+                    FROM sensor_readings 
+                    ORDER BY time DESC 
+                    LIMIT {limit}
+                """))
+                rows = []
+                for row in result:
+                    rows.append({
+                        "time": str(row[0]),
+                        "sensor_id": row[1],
+                        "temperature": row[2],
+                        "humidity": row[3],
+                        "soil_moisture": row[4]
+                    })
+                return rows
+        except Exception as e:
+            print(f"Error fetching recent: {e}")
+            return []
+    return []
