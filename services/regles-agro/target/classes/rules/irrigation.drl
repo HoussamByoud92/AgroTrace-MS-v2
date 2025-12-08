@@ -1,0 +1,30 @@
+package rules
+import com.agrotrace.rules.Fact
+
+rule "High Heat and Low Moisture"
+    when
+        f : Fact(temperature > 30, soilMoisture < 20)
+    then
+        f.setRecommendation("Urgent Irrigation Required: High Heat Stress");
+end
+
+rule "Moderate Condition"
+    when
+        f : Fact(temperature <= 30, soilMoisture < 40)
+    then
+        f.setRecommendation("Standard Irrigation Schedule");
+end
+
+rule "Rice Needs High Moisture"
+    when
+        f : Fact(cropType == "Rice", soilMoisture < 80)
+    then
+        f.setRecommendation("Critical: Rice requires flooding/high moisture");
+end
+
+rule "Sufficient Moisture"
+    when
+        f : Fact(soilMoisture >= 40, cropType != "Rice")
+    then
+        f.setRecommendation("No Irrigation Needed");
+end

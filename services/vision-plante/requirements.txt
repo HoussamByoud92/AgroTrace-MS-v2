@@ -1,0 +1,6 @@
+torch
+torchvision
+numpy
+pillow
+minio
+kafka-python
