@@ -1,8 +1,13 @@
 fastapi
 uvicorn
-pandas
+pandas>=2.0.0
 python-multipart
-scikit-learn
+scikit-learn>=1.3.0
 sqlalchemy
 psycopg2-binary
 tomli
+numpy>=1.24.0
+tensorflow>=2.13.0
+prophet>=1.1.5
+joblib>=1.3.0
+aiofiles

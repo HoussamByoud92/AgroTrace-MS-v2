@@ -1,6 +1,8 @@
-torch
-torchvision
+fastapi>=0.104.0
+uvicorn>=0.24.0
 numpy
 pillow
 minio
 kafka-python
+python-multipart
+aiofiles

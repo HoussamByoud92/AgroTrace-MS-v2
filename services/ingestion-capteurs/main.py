@@ -172,22 +172,37 @@ def run_simulation():
     print("Starting sensor simulation...")
     sensors = ["sensor-01", "sensor-02", "sensor-03"]
     
+    # Base locations for sensors (different regions)
+    sensor_locations = {
+        "sensor-01": {"base_lat": 45.0, "base_lon": -0.5, "base_elevation": 100},
+        "sensor-02": {"base_lat": 45.2, "base_lon": -0.7, "base_elevation": 150},
+        "sensor-03": {"base_lat": 44.8, "base_lon": -0.3, "base_elevation": 80}
+    }
+    
     while simulation_active:
         for s_id in sensors:
             if not simulation_active: break
             
+            loc = sensor_locations[s_id]
+            
+            # Generate varied environmental data
             data = SensorData(
                 sensor_id=s_id,
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                temperature=20 + random.uniform(-5, 10),
-                humidity=50 + random.uniform(-10, 20),
-                soil_moisture=30 + random.uniform(-5, 40),
-                light_intensity=500 + random.uniform(-100, 500),
-                location_lat=45.0 + random.uniform(-0.01, 0.01),
-                location_lon=-0.5 + random.uniform(-0.01, 0.01)
+                # Temperature varies by time and sensor
+                temperature=20 + random.uniform(-8, 15) + (hash(s_id) % 5),
+                # Humidity varies inversely with temperature
+                humidity=50 + random.uniform(-15, 25),
+                # Soil moisture varies significantly
+                soil_moisture=25 + random.uniform(0, 50),
+                # Light intensity varies
+                light_intensity=400 + random.uniform(-200, 600),
+                # Location with small variations
+                location_lat=loc["base_lat"] + random.uniform(-0.02, 0.02),
+                location_lon=loc["base_lon"] + random.uniform(-0.02, 0.02)
             )
             
-            # Call internal ingest directly or via requests (internal is better here)
+            # Call internal ingest directly
             ingest_sensor_data(data)
             
         time.sleep(2) # Generate every 2 seconds
@@ -211,6 +226,15 @@ def stop_simulation():
     global simulation_active
     simulation_active = False
     return {"status": "Simulation stopping..."}
+
+@app.get("/simulate/status")
+def get_simulation_status():
+    """Get current simulation status"""
+    global simulation_active
+    return {
+        "is_active": simulation_active,
+        "status": "running" if simulation_active else "stopped"
+    }
 
 @app.get("/recent")
 def get_recent_readings(limit: int = 20):
