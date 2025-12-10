@@ -78,7 +78,7 @@ export default function WaterPrediction() {
 
     const fetchRecentReadings = async () => {
         try {
-            const response = await fetch('http://localhost:8002/recent?limit=10');
+            const response = await fetch('http://localhost:8002/simulate/generate-full?count=10');
             const data = await response.json();
             setRealtimeData(data);
         } catch (error) {
@@ -501,7 +501,7 @@ export default function WaterPrediction() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-semibold">Real-Time Sensor Simulation</h3>
+                            <h3 className="text-lg font-semibold">Real-Time Data Simulation (37 Variables)</h3>
                             <button
                                 onClick={toggleSimulation}
                                 className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${simulationActive
@@ -520,7 +520,7 @@ export default function WaterPrediction() {
                         {simulationActive && (
                             <div className="mb-4 bg-green-50 border border-green-200 p-3 rounded-lg flex items-center gap-2">
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                <span className="text-sm text-green-700 font-medium">Simulation Active - Generating data every 2 seconds</span>
+                                <span className="text-sm text-green-700 font-medium">Simulation Active - Generating full 37-variable dataset every 3 seconds</span>
                             </div>
                         )}
 
@@ -528,11 +528,30 @@ export default function WaterPrediction() {
                             {realtimeData.length > 0 ? (
                                 realtimeData.map((reading, idx) => (
                                     <div key={idx} className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-100">
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">Sensor:</span>
-                                                <span className="font-semibold ml-1">{reading.sensor_id}</span>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                            {/* Location Data */}
+                                            <div className="col-span-2 md:col-span-4 font-semibold text-gray-700 mb-2 pb-2 border-b border-gray-200">
+                                                Sensor: {reading.sensor_id} | {reading.timestamp}
                                             </div>
+
+                                            <div>
+                                                <span className="text-gray-600">Lat:</span>
+                                                <span className="font-semibold ml-1">{reading.lat?.toFixed(4)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Lon:</span>
+                                                <span className="font-semibold ml-1">{reading.lon?.toFixed(4)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Elevation:</span>
+                                                <span className="font-semibold ml-1">{reading.elevation?.toFixed(1)}m</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">FIPS:</span>
+                                                <span className="font-semibold ml-1">{reading.fips}</span>
+                                            </div>
+
+                                            {/* Environmental */}
                                             <div>
                                                 <span className="text-gray-600">Temp:</span>
                                                 <span className="font-semibold ml-1">{reading.temperature?.toFixed(1)}°C</span>
@@ -545,16 +564,69 @@ export default function WaterPrediction() {
                                                 <span className="text-gray-600">Soil:</span>
                                                 <span className="font-semibold ml-1">{reading.soil_moisture?.toFixed(1)}%</span>
                                             </div>
-                                            <div className="text-xs text-gray-500">
-                                                {new Date(reading.time).toLocaleTimeString()}
+
+                                            {/* Slopes */}
+                                            <div className="col-span-2 md:col-span-4 font-medium text-purple-600 mt-2">Slopes:</div>
+                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                                <div key={`slope${i}`}>
+                                                    <span className="text-gray-600">S{i}:</span>
+                                                    <span className="font-semibold ml-1">{reading[`slope${i}`]?.toFixed(2)}</span>
+                                                </div>
+                                            ))}
+
+                                            {/* Aspects */}
+                                            <div className="col-span-2 md:col-span-4 font-medium text-orange-600 mt-2">Aspects (%):</div>
+                                            <div>
+                                                <span className="text-gray-600">N:</span>
+                                                <span className="font-semibold ml-1">{reading.aspectN?.toFixed(1)}</span>
                                             </div>
+                                            <div>
+                                                <span className="text-gray-600">E:</span>
+                                                <span className="font-semibold ml-1">{reading.aspectE?.toFixed(1)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">S:</span>
+                                                <span className="font-semibold ml-1">{reading.aspectS?.toFixed(1)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">W:</span>
+                                                <span className="font-semibold ml-1">{reading.aspectW?.toFixed(1)}</span>
+                                            </div>
+
+                                            {/* Land Cover */}
+                                            <div className="col-span-2 md:col-span-4 font-medium text-green-600 mt-2">Land Cover (%):</div>
+                                            <div>
+                                                <span className="text-gray-600">Water:</span>
+                                                <span className="font-semibold ml-1">{reading.WAT_LAND?.toFixed(1)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Urban:</span>
+                                                <span className="font-semibold ml-1">{reading.URB_LAND?.toFixed(1)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Grass:</span>
+                                                <span className="font-semibold ml-1">{reading.GRS_LAND?.toFixed(1)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Forest:</span>
+                                                <span className="font-semibold ml-1">{reading.FOR_LAND?.toFixed(1)}</span>
+                                            </div>
+
+                                            {/* Soil Quality */}
+                                            <div className="col-span-2 md:col-span-4 font-medium text-amber-600 mt-2">Soil Quality:</div>
+                                            {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                                                <div key={`sq${i}`}>
+                                                    <span className="text-gray-600">SQ{i}:</span>
+                                                    <span className="font-semibold ml-1">{reading[`SQ${i}`]?.toFixed(1)}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 ))
                             ) : (
                                 <div className="text-center py-12 text-gray-400">
                                     <Activity size={48} className="mx-auto mb-3 opacity-50" />
-                                    <p>No data yet. Start the simulation to see real-time readings.</p>
+                                    <p>No data yet. Start the simulation to see real-time readings with all 37 variables.</p>
                                 </div>
                             )}
                         </div>
@@ -581,13 +653,14 @@ export default function WaterPrediction() {
                             </button>
 
                             <div className="pt-4 border-t">
-                                <p className="text-sm text-gray-600 mb-2">Simulation generates:</p>
+                                <p className="text-sm text-gray-600 mb-2">Simulation generates all 37 variables:</p>
                                 <ul className="text-xs text-gray-500 space-y-1">
-                                    <li>• Temperature readings</li>
-                                    <li>• Humidity levels</li>
-                                    <li>• Soil moisture data</li>
-                                    <li>• Light intensity</li>
-                                    <li>• GPS coordinates</li>
+                                    <li>• Location (4): fips, lat, lon, elevation</li>
+                                    <li>• Slopes (8): slope1-8</li>
+                                    <li>• Aspects (5): N, E, S, W, Unknown</li>
+                                    <li>• Land Cover (8): Water, Urban, Grass, etc.</li>
+                                    <li>• Soil Quality (7): SQ1-7</li>
+                                    <li>• Environmental (5): temp, humidity, etc.</li>
                                 </ul>
                             </div>
                         </div>

@@ -169,7 +169,7 @@ def run_simulation():
     global simulation_active
     import random
     
-    print("Starting sensor simulation...")
+    print("Starting sensor simulation with full 37-variable dataset...")
     sensors = ["sensor-01", "sensor-02", "sensor-03"]
     
     # Base locations for sensors (different regions)
@@ -185,7 +185,7 @@ def run_simulation():
             
             loc = sensor_locations[s_id]
             
-            # Generate varied environmental data
+            # Generate basic sensor data
             data = SensorData(
                 sensor_id=s_id,
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -261,3 +261,142 @@ def get_recent_readings(limit: int = 20):
             print(f"Error fetching recent: {e}")
             return []
     return []
+
+def generate_full_variable_data(sensor_id: str = "sensor-01", base_lat: float = 45.0, base_lon: float = -0.5, base_elevation: float = 100.0):
+    """Generate all 37 variables for water prediction model"""
+    import random
+    
+    # Slopes vary by terrain (8 directions)
+    slope_base = random.uniform(0.1, 0.8)
+    slopes = {f"slope{i}": round(slope_base + random.uniform(-0.3, 0.3), 2) for i in range(1, 9)}
+    
+    # Aspect distribution (should sum to ~100%)
+    aspect_values = [random.uniform(15, 35) for _ in range(4)]
+    aspect_sum = sum(aspect_values)
+    aspects = {
+        "aspectN": round((aspect_values[0] / aspect_sum) * 100, 1),
+        "aspectE": round((aspect_values[1] / aspect_sum) * 100, 1),
+        "aspectS": round((aspect_values[2] / aspect_sum) * 100, 1),
+        "aspectW": round((aspect_values[3] / aspect_sum) * 100, 1),
+        "aspectUnknown": round(random.uniform(0, 5), 1)
+    }
+    
+    # Land cover percentages (should sum to ~100%)
+    land_values = {
+        "WAT_LAND": random.uniform(2, 8),
+        "NVG_LAND": random.uniform(5, 15),
+        "URB_LAND": random.uniform(3, 10),
+        "GRS_LAND": random.uniform(15, 30),
+        "FOR_LAND": random.uniform(8, 20),
+        "CULTRF_LAND": random.uniform(10, 25),
+        "CULTIR_LAND": random.uniform(15, 30),
+        "CULT_LAND": random.uniform(5, 15)
+    }
+    land_sum = sum(land_values.values())
+    land_cover = {k: round((v / land_sum) * 100, 1) for k, v in land_values.items()}
+    
+    # Soil quality indices
+    soil_base = random.uniform(40, 70)
+    soil_quality = {
+        f"SQ{i}": round(soil_base + random.uniform(-10, 10) - (i * 2), 1) 
+        for i in range(1, 8)
+    }
+    
+    # Basic environmental data
+    temperature = 20 + random.uniform(-8, 15)
+    humidity = 50 + random.uniform(-15, 25)
+    soil_moisture = 25 + random.uniform(0, 50)
+    
+    # Combine all data
+    return {
+        "fips": f"{random.randint(10000, 99999)}",
+        "lat": round(base_lat + random.uniform(-0.02, 0.02), 4),
+        "lon": round(base_lon + random.uniform(-0.02, 0.02), 4),
+        "elevation": round(base_elevation + random.uniform(-20, 20), 1),
+        "temperature": round(temperature, 2),
+        "humidity": round(humidity, 2),
+        "soil_moisture": round(soil_moisture, 2),
+        "sensor_id": sensor_id,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        **slopes,
+        **aspects,
+        **land_cover,
+        **soil_quality
+    }
+
+@app.get("/simulate/generate-full")
+def generate_full_data(count: int = 1):
+    """Generate full 37-variable dataset for testing"""
+    import random
+    
+    sensors = ["sensor-01", "sensor-02", "sensor-03"]
+    sensor_locations = {
+        "sensor-01": {"base_lat": 45.0, "base_lon": -0.5, "base_elevation": 100},
+        "sensor-02": {"base_lat": 45.2, "base_lon": -0.7, "base_elevation": 150},
+        "sensor-03": {"base_lat": 44.8, "base_lon": -0.3, "base_elevation": 80}
+    }
+    
+    results = []
+    for _ in range(count):
+        sensor = random.choice(sensors)
+        loc = sensor_locations[sensor]
+        data = generate_full_variable_data(
+            sensor_id=sensor,
+            base_lat=loc["base_lat"],
+            base_lon=loc["base_lon"],
+            base_elevation=loc["base_elevation"]
+        )
+        results.append(data)
+    
+    return results
+
+@app.get("/simulate/export-csv")
+def export_csv(rows: int = 20):
+    """Export simulation data as CSV with configurable row count (min 20)"""
+    import csv
+    from io import StringIO
+    from fastapi.responses import StreamingResponse
+    
+    # Validate minimum rows
+    if rows < 20:
+        raise HTTPException(status_code=400, detail="Minimum 20 rows required")
+    
+    # Generate data
+    import random
+    sensors = ["sensor-01", "sensor-02", "sensor-03"]
+    sensor_locations = {
+        "sensor-01": {"base_lat": 45.0, "base_lon": -0.5, "base_elevation": 100},
+        "sensor-02": {"base_lat": 45.2, "base_lon": -0.7, "base_elevation": 150},
+        "sensor-03": {"base_lat": 44.8, "base_lon": -0.3, "base_elevation": 80}
+    }
+    
+    data_rows = []
+    for _ in range(rows):
+        sensor = random.choice(sensors)
+        loc = sensor_locations[sensor]
+        data = generate_full_variable_data(
+            sensor_id=sensor,
+            base_lat=loc["base_lat"],
+            base_lon=loc["base_lon"],
+            base_elevation=loc["base_elevation"]
+        )
+        data_rows.append(data)
+    
+    # Create CSV
+    output = StringIO()
+    if data_rows:
+        writer = csv.DictWriter(output, fieldnames=data_rows[0].keys())
+        writer.writeheader()
+        writer.writerows(data_rows)
+    
+    output.seek(0)
+    
+    # Return as downloadable file
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=sensor_simulation_{rows}_rows.csv"
+        }
+    )
+

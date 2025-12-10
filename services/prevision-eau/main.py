@@ -1,7 +1,11 @@
-from fastapi import FastAPI, HTTPException, Body, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, Column, Integer, String, Float, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+import jwt
 import pandas as pd
 import os
 import numpy as np
@@ -33,16 +37,68 @@ app.add_middleware(
 
 # Config
 TIMESCALE_URL = os.getenv("TIMESCALE_URL", "postgresql://agro_user:agro_password@timescaledb:5432/agro_timescale")
+JWT_SECRET = os.getenv("JWT_SECRET", "supersecretkey")
+ALGORITHM = "HS256"
 MODELS_DIR = Path("./models")
 MODELS_DIR.mkdir(exist_ok=True)
 
 # Database Setup
 engine = None
+SessionLocal = None
+Base = declarative_base()
+security = HTTPBearer(auto_error=False)
+
 try:
     engine = create_engine(TIMESCALE_URL)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     print("PrevisionEau connected to TimescaleDB")
 except Exception as e:
     print(f"Warning: DB Connection failed: {e}")
+
+# User Models Table
+class UserModel(Base):
+    __tablename__ = "user_models"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    model_type = Column(String(50), nullable=False)
+    version = Column(String(50))
+    accuracy = Column(Float)
+    trained_at = Column(DateTime, default=datetime.now)
+    file_path = Column(String(255))
+    rows_processed = Column(Integer)
+
+# Create tables
+if engine:
+    Base.metadata.create_all(bind=engine)
+
+# Database dependency
+def get_db():
+    if not SessionLocal:
+        raise HTTPException(status_code=500, detail="Database not available")
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# JWT verification
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Verify JWT token and return user info (optional)"""
+    if not credentials:
+        return None  # Allow unauthenticated access for backward compatibility
+    
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+        user_id: int = payload.get("user_id")
+        username: str = payload.get("sub")
+        if user_id is None:
+            return None
+        return {"user_id": user_id, "username": username}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTError:
+        return None  # Allow unauthenticated for backward compatibility
 
 # Global model storage
 models = {
@@ -159,6 +215,44 @@ def get_recommendation(water_need_mm: float) -> str:
         return "Moderate irrigation required"
     else:
         return "Heavy irrigation required - critical water deficit"
+
+# ============================================================================
+# USER MODEL MANAGEMENT
+# ============================================================================
+
+def save_user_model(db: Session, user_id: int, model_type: str, result: Dict, rows_processed: int):
+    """Save or update user model in database"""
+    try:
+        # Check if model exists for this user
+        existing = db.query(UserModel).filter(
+            UserModel.user_id == user_id,
+            UserModel.model_type == model_type
+        ).first()
+        
+        if existing:
+            # Update existing
+            existing.version = result["version"]
+            existing.accuracy = result["accuracy"]
+            existing.trained_at = datetime.now()
+            existing.rows_processed = rows_processed
+        else:
+            # Create new
+            new_model = UserModel(
+                user_id=user_id,
+                model_type=model_type,
+                version=result["version"],
+                accuracy=result["accuracy"],
+                trained_at=datetime.now(),
+                file_path=f"models/{user_id}/{model_type}",
+                rows_processed=rows_processed
+            )
+            db.add(new_model)
+        
+        db.commit()
+        print(f"Saved {model_type} model for user {user_id} to database")
+    except Exception as e:
+        print(f"Error saving user model to database: {e}")
+        db.rollback()
 
 # ============================================================================
 # LSTM MODEL FUNCTIONS
@@ -364,6 +458,138 @@ def train_prophet_model(df: pd.DataFrame) -> Dict:
         raise Exception(f"Prophet training failed: {str(e)}")
 
 # ============================================================================
+# USER-SPECIFIC MODEL TRAINING
+# ============================================================================
+
+def train_lstm_model_for_user(df: pd.DataFrame, user_id: int, user_models_dir: Path) -> Dict:
+    """Train LSTM model for specific user with custom storage"""
+    try:
+        # Prepare features and target
+        feature_cols = [
+            'lat', 'lon', 'elevation',
+            'slope1', 'slope2', 'slope3', 'slope4', 'slope5', 'slope6', 'slope7', 'slope8',
+            'aspectN', 'aspectE', 'aspectS', 'aspectW', 'aspectUnknown',
+            'WAT_LAND', 'NVG_LAND', 'URB_LAND', 'GRS_LAND', 'FOR_LAND',
+            'CULTRF_LAND', 'CULTIR_LAND', 'CULT_LAND',
+            'SQ1', 'SQ2', 'SQ3', 'SQ4', 'SQ5', 'SQ6', 'SQ7'
+        ]
+        
+        if 'water_need' not in df.columns:
+            df['water_need'] = (
+                50 - df['SQ1'] * 0.3 + df['CULTIR_LAND'] * 0.2 + 
+                df['elevation'] * 0.01 + np.random.normal(0, 5, len(df))
+            ).clip(0, 100)
+        
+        X = df[feature_cols].values
+        y = df['water_need'].values
+        
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = create_lstm_model(input_dim=X_train_scaled.shape[1])
+        
+        early_stop = keras.callbacks.EarlyStopping(
+            monitor='val_loss', 
+            patience=15,
+            restore_best_weights=True,
+            min_delta=0.001
+        )
+        
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.5,
+            patience=5,
+            min_lr=0.00001,
+            verbose=0
+        )
+        
+        history = model.fit(
+            X_train_scaled, y_train,
+            validation_data=(X_test_scaled, y_test),
+            epochs=100,
+            batch_size=16,
+            callbacks=[early_stop, reduce_lr],
+            verbose=0
+        )
+        
+        test_loss, test_mae, test_mse = model.evaluate(X_test_scaled, y_test, verbose=0)
+        accuracy = max(0, 1 - (test_mae / 50))
+        
+        # Save to user-specific paths
+        model_path = user_models_dir / "lstm_model.keras"
+        scaler_path = user_models_dir / "lstm_scaler.joblib"
+        
+        model.save(model_path)
+        joblib.dump(scaler, scaler_path)
+        
+        version = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        return {
+            "status": "success",
+            "accuracy": round(accuracy, 3),
+            "mae": round(test_mae, 2),
+            "version": version
+        }
+        
+    except Exception as e:
+        raise Exception(f"LSTM training failed: {str(e)}")
+
+def train_prophet_model_for_user(df: pd.DataFrame, user_id: int, user_models_dir: Path) -> Dict:
+    """Train Prophet model for specific user with custom storage"""
+    try:
+        if 'water_need' not in df.columns:
+            df['water_need'] = (
+                50 - df['SQ1'] * 0.3 + df['CULTIR_LAND'] * 0.2 + 
+                df['elevation'] * 0.01 + np.random.normal(0, 5, len(df))
+            ).clip(0, 100)
+        
+        df_prophet = pd.DataFrame({
+            'ds': pd.date_range(start='2023-01-01', periods=len(df), freq='D'),
+            'y': df['water_need'].values
+        })
+        
+        feature_cols = ['lat', 'lon', 'elevation', 'SQ1', 'SQ2', 'CULTIR_LAND', 'CULT_LAND']
+        for col in feature_cols:
+            if col in df.columns:
+                df_prophet[col] = df[col].values
+        
+        model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.05
+        )
+        
+        for col in feature_cols:
+            if col in df_prophet.columns:
+                model.add_regressor(col)
+        
+        model.fit(df_prophet)
+        
+        forecast = model.predict(df_prophet)
+        mae = np.mean(np.abs(forecast['yhat'].values - df_prophet['y'].values))
+        accuracy = max(0, 1 - (mae / 50))
+        
+        # Save to user-specific path
+        model_path = user_models_dir / "prophet_model.joblib"
+        joblib.dump(model, model_path)
+        
+        version = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        return {
+            "status": "success",
+            "accuracy": round(accuracy, 3),
+            "mae": round(mae, 2),
+            "version": version
+        }
+        
+    except Exception as e:
+        raise Exception(f"Prophet training failed: {str(e)}")
+
+# ============================================================================
 # PREDICTION FUNCTIONS
 # ============================================================================
 
@@ -444,15 +670,27 @@ async def predict_water_needs(
 async def train_from_csv(
     file: UploadFile = File(...),
     model_type: str = "both",
-    background_tasks: BackgroundTasks = None
+    user_id: int = None,
+    background_tasks: BackgroundTasks = None,
+    token_data: dict = Depends(verify_token),
+    db: Session = Depends(get_db)
 ):
-    """Train model from uploaded CSV file"""
+    """Train model from uploaded CSV file with user-specific storage"""
     try:
+        # Get user_id from token if not provided
+        if user_id is None and token_data:
+            user_id = token_data.get("user_id")
+        
+        # Default to user 0 for backward compatibility
+        if user_id is None:
+            user_id = 0
+        
         # Read CSV
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
         
         print(f"CSV loaded: {len(df)} rows, columns: {list(df.columns)}")
+        print(f"Training for user_id: {user_id}")
         
         # Validate columns
         required_cols = ['lat', 'lon', 'elevation', 'SQ1']
@@ -463,7 +701,7 @@ async def train_from_csv(
                 detail=f"Missing required columns: {missing_cols}"
             )
         
-        if len(df) < 50:  # Reduced from 100 for easier testing
+        if len(df) < 50:
             raise HTTPException(
                 status_code=400,
                 detail=f"Insufficient data. Minimum 50 rows required for training. Got {len(df)} rows."
@@ -477,16 +715,24 @@ async def train_from_csv(
         
         results = {}
         
+        # Create user-specific model directory
+        user_models_dir = MODELS_DIR / str(user_id)
+        user_models_dir.mkdir(exist_ok=True)
+        
         # Train LSTM
         if model_type in ["lstm", "both"]:
             try:
-                print("Starting LSTM training...")
+                print(f"Starting LSTM training for user {user_id}...")
                 training_state["status"] = "Training LSTM model..."
                 training_state["progress"] = 25
-                lstm_result = train_lstm_model(df)
+                lstm_result = train_lstm_model_for_user(df, user_id, user_models_dir)
                 results["lstm"] = lstm_result
                 training_state["progress"] = 50
                 print(f"LSTM training completed: {lstm_result}")
+                
+                # Save to database
+                save_user_model(db, user_id, "lstm", lstm_result, len(df))
+                
             except Exception as e:
                 print(f"LSTM training error: {str(e)}")
                 import traceback
@@ -496,13 +742,17 @@ async def train_from_csv(
         # Train Prophet
         if model_type in ["prophet", "both"]:
             try:
-                print("Starting Prophet training...")
+                print(f"Starting Prophet training for user {user_id}...")
                 training_state["status"] = "Training Prophet model..."
                 training_state["progress"] = 75
-                prophet_result = train_prophet_model(df)
+                prophet_result = train_prophet_model_for_user(df, user_id, user_models_dir)
                 results["prophet"] = prophet_result
                 training_state["progress"] = 100
                 print(f"Prophet training completed: {prophet_result}")
+                
+                # Save to database
+                save_user_model(db, user_id, "prophet", prophet_result, len(df))
+                
             except Exception as e:
                 print(f"Prophet training error: {str(e)}")
                 import traceback
@@ -516,6 +766,7 @@ async def train_from_csv(
         
         return {
             "status": "Training completed successfully",
+            "user_id": user_id,
             "rows_processed": len(df),
             "results": results
         }
@@ -554,6 +805,32 @@ async def get_models_info():
             is_loaded=models["prophet"]["model"] is not None
         )
     ]
+
+@app.get("/models/user/{user_id}")
+async def get_user_models(user_id: int, db: Session = Depends(get_db)):
+    """Get all trained models for a specific user"""
+    try:
+        user_models = db.query(UserModel).filter(UserModel.user_id == user_id).all()
+        
+        result = []
+        for model in user_models:
+            result.append({
+                "model_type": model.model_type,
+                "version": model.version,
+                "accuracy": model.accuracy,
+                "trained_at": model.trained_at.isoformat() if model.trained_at else None,
+                "rows_processed": model.rows_processed,
+                "is_loaded": True  # Models are saved to disk
+            })
+        
+        return {
+            "user_id": user_id,
+            "models": result,
+            "total_models": len(result)
+        }
+    except Exception as e:
+        print(f"Error fetching user models: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/latest-sensor-data")
 async def get_latest_sensor_data():
