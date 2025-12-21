@@ -1,0 +1,33 @@
+# Docker Compose - VisionPlante Only (No Kafka)
+# Use this for simple testing without Kafka
+# Command: docker-compose -f docker-compose.standalone.yml up -d
+
+services:
+  visionplante:
+    build: .
+    container_name: visionplante
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./model:/app/model:ro          # Read-only model
+      - ./uploads:/app/uploads          # Writable uploads
+      - ./results:/app/results          # Writable results
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8003
+      - ENVIRONMENT=production
+      - MODEL_PATH=/app/model/best.pt
+      - CONF_THRESHOLD=0.4
+      - IOU_THRESHOLD=0.45
+      - IMG_SIZE=640
+      - DEVICE=cpu
+      - MAX_DETECTIONS=300
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

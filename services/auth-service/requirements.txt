@@ -3,6 +3,6 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 pyjwt
-passlib[bcrypt]
+passlib[argon2]
 python-multipart
 email-validator

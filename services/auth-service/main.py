@@ -42,7 +42,7 @@ class User(Base):
 Base.metadata.create_all(bind=engine)
 
 # Auth Utils
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 security = HTTPBearer()
 
 def verify_password(plain_password, hashed_password):

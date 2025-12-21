@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionPlante - Crop Stress Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+        
+        .upload-section input[type="file"] {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .upload-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .detect-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .detect-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .detect-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .preview-section {
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .preview-section img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .results-section {
+            display: none;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 15px;
+        }
+        
+        .results-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .health-score {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .health-score.good {
+            color: #38ef7d;
+        }
+        
+        .health-score.medium {
+            color: #ffa500;
+        }
+        
+        .health-score.bad {
+            color: #ff4757;
+        }
+        
+        .detections-list {
+            margin-top: 20px;
+        }
+        
+        .detection-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .detection-item.stressed {
+            border-left-color: #ff4757;
+        }
+        
+        .detection-item.healthy {
+            border-left-color: #38ef7d;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #ff4757;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 VisionPlante</h1>
+            <p>AI-Powered Crop Stress Detection</p>
+        </div>
+        
+        <div class="content">
+            <div class="upload-section">
+                <h2>Upload Crop Image</h2>
+                <p style="margin: 20px 0; color: #666;">Select an image to analyze crop health</p>
+                <input type="file" id="imageInput" accept="image/*">
+                <button class="upload-btn" onclick="document.getElementById('imageInput').click()">
+                    📁 Choose Image
+                </button>
+                <p id="fileName" style="margin-top: 15px; color: #667eea;"></p>
+            </div>
+            
+            <div class="preview-section" id="previewSection">
+                <h3>Preview</h3>
+                <img id="previewImage" alt="Preview">
+                <button class="detect-btn" id="detectBtn" onclick="detectCropStress()">
+                    🔍 Detect Crop Stress
+                </button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #667eea;">Analyzing image...</p>
+            </div>
+            
+            <div class="error" id="error"></div>
+            
+            <div class="results-section" id="resultsSection">
+                <h2>Detection Results</h2>
+                
+                <div class="health-score" id="healthScore"></div>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3 id="totalDetections">0</h3>
+                        <p>Total Detections</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="healthyCount" style="color: #38ef7d;">0</h3>
+                        <p>Healthy Plants</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="stressedCount" style="color: #ff4757;">0</h3>
+                        <p>Stressed Plants</p>
+                    </div>
+                </div>
+                
+                <h3>Annotated Image</h3>
+                <img id="resultImage" alt="Result" style="margin-top: 15px;">
+                
+                <div class="detections-list" id="detectionsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8003/api/v1';
+        let selectedFile = null;
+        
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById('fileName').textContent = `Selected: ${file.name}`;
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImage').src = e.target.result;
+                    document.getElementById('previewSection').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+                
+                // Hide previous results
+                document.getElementById('resultsSection').style.display = 'none';
+                document.getElementById('error').style.display = 'none';
+            }
+        });
+        
+        async function detectCropStress() {
+            if (!selectedFile) {
+                showError('Please select an image first');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('detectBtn').disabled = true;
+            document.getElementById('error').style.display = 'none';
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', selectedFile);
+                formData.append('field_id', 'web-test-field');
+                
+                const response = await fetch(`${API_BASE}/detect`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                displayResults(result);
+                
+            } catch (error) {
+                showError(`Detection failed: ${error.message}`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('detectBtn').disabled = false;
+            }
+        }
+        
+        function displayResults(result) {
+            // Health score
+            const healthScore = result.health_score.toFixed(1);
+            const scoreElement = document.getElementById('healthScore');
+            scoreElement.textContent = `${healthScore}%`;
+            
+            if (healthScore >= 70) {
+                scoreElement.className = 'health-score good';
+            } else if (healthScore >= 40) {
+                scoreElement.className = 'health-score medium';
+            } else {
+                scoreElement.className = 'health-score bad';
+            }
+            
+            // Stats
+            document.getElementById('totalDetections').textContent = result.total_detections;
+            document.getElementById('healthyCount').textContent = result.healthy_count;
+            document.getElementById('stressedCount').textContent = result.stressed_count;
+            
+            // Result image
+            document.getElementById('resultImage').src = `${API_BASE}${result.image_url}`;
+            
+            // Detections list
+            const detectionsList = document.getElementById('detectionsList');
+            detectionsList.innerHTML = '<h3>Individual Detections</h3>';
+            
+            result.detections.forEach((det, index) => {
+                const item = document.createElement('div');
+                item.className = `detection-item ${det.class_name}`;
+                item.innerHTML = `
+                    <strong>Detection ${index + 1}:</strong> 
+                    ${det.class_name.toUpperCase()} 
+                    (Confidence: ${(det.confidence * 100).toFixed(1)}%)
+                `;
+                detectionsList.appendChild(item);
+            });
+            
+            // Show results
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+        
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

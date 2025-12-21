@@ -1,0 +1,75 @@
+# Docker Compose - VisionPlante with Kafka
+# Use this for full microservices setup
+# Command: docker-compose up -d
+
+services:
+  visionplante:
+    build: .
+    container_name: visionplante
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./model:/app/model:ro          # Read-only model
+      - ./uploads:/app/uploads          # Writable uploads
+      - ./results:/app/results          # Writable results
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8003
+      - ENVIRONMENT=production
+      - MODEL_PATH=/app/model/best.pt
+      - CONF_THRESHOLD=0.4
+      - IOU_THRESHOLD=0.45
+      - IMG_SIZE=640
+      - DEVICE=cpu
+      - MAX_DETECTIONS=300
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC_DISEASE_DETECTION=disease-detection-topic
+      - KAFKA_TOPIC_IMAGE_TILES=image-tiles-topic
+      - LOG_LEVEL=INFO
+    depends_on:
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - agri-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    networks:
+      - agri-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  agri-network:
+    driver: bridge

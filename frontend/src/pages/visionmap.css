@@ -1,0 +1,366 @@
+/* VisionMap Styles */
+.vision-map-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: -2rem;
+    /* Offset the parent padding */
+    padding: 0;
+    width: calc(100% + 4rem);
+    /* Account for both sides of padding */
+    height: calc(100% + 4rem);
+    /* Account for top and bottom padding */
+}
+
+/* Sidebar Styling */
+.vision-sidebar {
+    width: 380px;
+    min-width: 380px;
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+
+.vision-sidebar .sidebar-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+}
+
+.vision-sidebar .logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #059669, #34d399);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.vision-sidebar .title-container h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.vision-sidebar .title-container p {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+.vision-sidebar .sidebar-content {
+    flex: 1;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Step Cards */
+.step-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+
+.step-card:hover {
+    border-color: #059669;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    background: #f3f4f6;
+    color: #6b7280;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid #e5e7eb;
+}
+
+.step-card:hover .step-number {
+    background: #059669;
+    color: white;
+    border-color: #059669;
+}
+
+.step-header h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.step-body .hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #059669;
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #047857;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: none;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-outline {
+    background: white;
+    border: 1px solid #e5e7eb;
+    color: #111827;
+}
+
+.btn-outline:hover:not(:disabled) {
+    border-color: #6b7280;
+    background: #f3f4f6;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.flex-grow {
+    flex: 1;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+/* Inputs */
+.input-group {
+    margin-bottom: 0.75rem;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.checkbox-wrapper label {
+    font-size: 0.875rem;
+    color: #111827;
+    cursor: pointer;
+}
+
+/* Status Messages */
+.status-message {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.status-message.success {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.status-message.error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.status-message.info {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    height: 6px;
+    background: #f3f4f6;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.75rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #059669;
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+/* Results */
+.image-count {
+    font-size: 0.8rem;
+    color: #059669;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+.results-summary {
+    font-size: 0.85rem;
+    color: #111827;
+    background: #f0fdf4;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.no-results {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin: 0.5rem 0;
+}
+
+/* Map Area */
+.map-wrapper {
+    flex: 1;
+    position: relative;
+    background: #e5e7eb;
+}
+
+.map-container {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.map-overlay-legend {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+    background: white;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    min-width: 180px;
+}
+
+.map-overlay-legend h3 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 0.75rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.legend-item:last-child {
+    margin-bottom: 0;
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dot.orange {
+    background: #f59e0b;
+    box-shadow: 0 0 0 2px #fef3c7;
+}
+
+.dot.red {
+    background: #ef4444;
+    box-shadow: 0 0 0 2px #fee2e2;
+}

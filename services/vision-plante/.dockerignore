@@ -1,0 +1,63 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.gitignore
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Don't copy uploads/results content (will be mounted as volumes)
+uploads/*
+results/*
+!uploads/.gitkeep
+!results/.gitkeep
+
+# Don't copy model (will be mounted as volume)
+# model/*
+# !model/.gitkeep
+
+# Environment files
+.env
+.env.local
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Tests (not needed in production container)
+tests/
+
+# Scripts (not needed in container)
+scripts/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker files (don't copy into image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
