@@ -160,34 +160,6 @@ export default function SensorIngestion() {
                         {simulating ? <><Square /> <span>Stop Simulation</span></> : <><Play /> <span>Start Simulation</span></>}
                     </button>
 
-                    {/* CSV Export Controls */}
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <Download size={18} className="text-blue-600" />
-                            CSV Export
-                        </h4>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">
-                                    Number of Rows (min 20)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="20"
-                                    value={exportRows}
-                                    onChange={(e) => setExportRows(Math.max(20, parseInt(e.target.value) || 20))}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                            <button
-                                onClick={handleExportCSV}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
-                            >
-                                <Download size={18} />
-                                Export {exportRows} Rows to CSV
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Status Card */}

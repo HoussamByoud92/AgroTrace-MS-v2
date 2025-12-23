@@ -110,6 +110,8 @@ services:
       TIMESCALE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${TIMESCALE_DB}
     ports:
       - "8002:8000"
+    volumes:
+      - ./sample_training_data.csv:/app/data/sample_training_data.csv
     depends_on:
       - kafka
       - timescaledb
@@ -181,6 +183,8 @@ services:
       - postgis
       - regles-agro
       - prevision-eau
+    ports:
+      - "8006:8000"
     networks:
       - agro-net
 

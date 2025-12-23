@@ -48,7 +48,7 @@ export default function WaterPrediction() {
 
     const fetchLatestSensorData = async () => {
         try {
-            const response = await fetch('http://localhost:8003/latest-sensor-data');
+            const response = await fetch('http://localhost:8002/latest-sensor-data');
             const data = await response.json();
             setFormData(prev => ({ ...prev, ...data }));
         } catch (error) {
@@ -101,9 +101,12 @@ export default function WaterPrediction() {
     };
 
     const handlePredict = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setLoading(true);
         try {
+            // First refresh data
+            await fetchLatestSensorData();
+
             const response = await fetch(`http://localhost:8003/predict?model_type=${modelType}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -194,12 +197,12 @@ export default function WaterPrediction() {
     return (
         <div className="space-y-6">
             {/* Header with Model Info */}
-            <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white p-6 rounded-xl shadow-lg">
-                <h2 className="text-2xl font-bold mb-2">Water Need Prediction System</h2>
-                <p className="text-blue-100 mb-4">AI-powered irrigation planning with LSTM & Prophet models</p>
-                <div className="flex gap-4">
+            <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white p-6 rounded-xl shadow-lg text-center">
+                <h2 className="text-3xl font-bold mb-2">Water Need Prediction</h2>
+                <p className="text-blue-100 mb-4">Click below to get recommendations based on real-time sensor data</p>
+                <div className="flex justify-center gap-4">
                     {modelInfo.map((model, idx) => (
-                        <div key={idx} className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
+                        <div key={idx} className="bg-white/20 backdrop-blur-sm px-6 py-2 rounded-lg">
                             <div className="text-xs text-blue-100">{model.model_type}</div>
                             <div className="font-semibold">
                                 {model.is_loaded ? `${(model.accuracy * 100).toFixed(1)}% Accuracy` : 'Not Trained'}
@@ -209,464 +212,48 @@ export default function WaterPrediction() {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg w-fit">
+            <div className="flex flex-col items-center justify-center space-y-8 py-10">
                 <button
-                    onClick={() => setActiveTab('predict')}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'predict' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={handlePredict}
+                    disabled={loading}
+                    className="group relative w-64 h-64 bg-white rounded-full shadow-2xl border-8 border-blue-500 flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:grayscale"
                 >
-                    <Play size={16} className="inline mr-1" />
-                    Prediction
+                    <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-ping opacity-20 group-hover:opacity-40"></div>
+                    <Droplet size={80} className={`text-blue-600 mb-2 ${loading ? 'animate-bounce' : ''}`} />
+                    <span className="text-gray-800 font-bold text-lg uppercase tracking-wider">
+                        {loading ? 'Analyzing...' : 'Predict Need Water'}
+                    </span>
                 </button>
-                <button
-                    onClick={() => setActiveTab('train')}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'train' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    <Database size={16} className="inline mr-1" />
-                    Training
-                </button>
-                <button
-                    onClick={() => setActiveTab('simulation')}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'simulation' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    <Activity size={16} className="inline mr-1" />
-                    Data Simulation
-                </button>
+
+                {prediction && (
+                    <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+                            <h3 className="text-gray-500 text-sm font-medium mb-1">Water Needed</h3>
+                            <div className="text-4xl font-black text-blue-600">
+                                {prediction.predicted_water_need_mm} <span className="text-xl">mm</span>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+                            <h3 className="text-gray-500 text-sm font-medium mb-1">Duration</h3>
+                            <div className="text-4xl font-black text-green-600">
+                                {prediction.irrigation_duration_hours} <span className="text-xl">h</span>
+                            </div>
+                        </div>
+                        <div className="md:col-span-2 bg-gradient-to-br from-blue-50 to-green-50 p-6 rounded-2xl border border-blue-100 text-center">
+                            <Activity size={24} className="mx-auto mb-2 text-blue-500" />
+                            <p className="text-lg font-medium text-gray-800">{prediction.recommendation}</p>
+                            <div className="text-xs text-gray-400 mt-4">
+                                Confidence Level: {(prediction.confidence * 100).toFixed(0)}% | Model: {prediction.model_used}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* PREDICTION TAB */}
-            {activeTab === 'predict' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Input Form */}
-                    <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold">Input Parameters</h3>
-                            <button
-                                onClick={fetchLatestSensorData}
-                                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            >
-                                <Zap size={14} />
-                                Load Latest Data
-                            </button>
-                        </div>
-
-                        <form onSubmit={handlePredict} className="space-y-6">
-                            {/* Location Section */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                    Location & Elevation
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <InputField label="FIPS Code" field="fips" type="text" />
-                                    <InputField label="Latitude" field="lat" step="0.0001" />
-                                    <InputField label="Longitude" field="lon" step="0.0001" />
-                                    <InputField label="Elevation (m)" field="elevation" />
-                                </div>
-                            </div>
-
-                            {/* Slope Section */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                    Slope (8 Directions)
-                                </h4>
-                                <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                                        <InputField key={i} label={`S${i}`} field={`slope${i}`} step="0.1" />
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Aspect Section */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                    Aspect Distribution (%)
-                                </h4>
-                                <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-                                    <InputField label="North" field="aspectN" max="100" />
-                                    <InputField label="East" field="aspectE" max="100" />
-                                    <InputField label="South" field="aspectS" max="100" />
-                                    <InputField label="West" field="aspectW" max="100" />
-                                    <InputField label="Unknown" field="aspectUnknown" max="100" />
-                                </div>
-                            </div>
-
-                            {/* Land Cover Section */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                    Land Cover (%)
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <InputField label="Water" field="WAT_LAND" max="100" />
-                                    <InputField label="Non-Veg" field="NVG_LAND" max="100" />
-                                    <InputField label="Urban" field="URB_LAND" max="100" />
-                                    <InputField label="Grassland" field="GRS_LAND" max="100" />
-                                    <InputField label="Forest" field="FOR_LAND" max="100" />
-                                    <InputField label="Cult-Rainfed" field="CULTRF_LAND" max="100" />
-                                    <InputField label="Cult-Irrigated" field="CULTIR_LAND" max="100" />
-                                    <InputField label="Cultivated" field="CULT_LAND" max="100" />
-                                </div>
-                            </div>
-
-                            {/* Soil Quality Section */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                                    Soil Quality Indices
-                                </h4>
-                                <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
-                                    {[1, 2, 3, 4, 5, 6, 7].map(i => (
-                                        <InputField key={i} label={`SQ${i}`} field={`SQ${i}`} max="100" />
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Model Selection & Submit */}
-                            <div className="flex gap-4 items-end">
-                                <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Prediction Model</label>
-                                    <select
-                                        value={modelType}
-                                        onChange={(e) => setModelType(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none"
-                                    >
-                                        <option value="lstm">LSTM Neural Network</option>
-                                        <option value="prophet">Prophet Time Series</option>
-                                    </select>
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-lg"
-                                >
-                                    {loading ? <span>Processing...</span> : <><Play size={18} /> <span>Predict Water Need</span></>}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* Prediction Results */}
-                    <div className="lg:col-span-1">
-                        {prediction ? (
-                            <div className="bg-gradient-to-br from-blue-50 to-green-50 p-6 rounded-xl shadow-lg border border-blue-100 animate-fade-in">
-                                <div className="text-center mb-6">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 text-white rounded-full flex items-center justify-center mb-3 mx-auto shadow-lg">
-                                        <Droplet size={32} />
-                                    </div>
-                                    <h3 className="text-sm font-medium text-gray-600 mb-2">Predicted Water Need</h3>
-                                    <div className="text-5xl font-bold text-gray-800 mb-1">
-                                        {prediction.predicted_water_need_mm}
-                                        <span className="text-xl text-gray-500 ml-2">mm</span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm text-gray-600 flex items-center gap-2">
-                                                <Clock size={16} className="text-blue-500" />
-                                                Irrigation Duration
-                                            </span>
-                                            <span className="font-bold text-gray-800">{prediction.irrigation_duration_hours}h</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm text-gray-600 flex items-center gap-2">
-                                                <TrendingUp size={16} className="text-green-500" />
-                                                Confidence
-                                            </span>
-                                            <span className="font-bold text-gray-800">{(prediction.confidence * 100).toFixed(0)}%</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                            <div
-                                                className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all"
-                                                style={{ width: `${prediction.confidence * 100}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-
-                                    <div className={`p-4 rounded-lg ${prediction.predicted_water_need_mm > 30 ? 'bg-red-50 border border-red-200' :
-                                        prediction.predicted_water_need_mm > 15 ? 'bg-yellow-50 border border-yellow-200' :
-                                            'bg-green-50 border border-green-200'
-                                        }`}>
-                                        <p className="text-sm font-medium text-gray-700">{prediction.recommendation}</p>
-                                    </div>
-
-                                    <div className="text-xs text-gray-500 text-center pt-2 border-t">
-                                        Model: {prediction.model_used} | {new Date(prediction.timestamp).toLocaleString()}
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-gray-50 p-8 rounded-xl border-2 border-dashed border-gray-300 text-center h-full flex flex-col items-center justify-center">
-                                <Droplet size={48} className="text-gray-400 mb-3" />
-                                <p className="text-gray-500 font-medium">No prediction yet</p>
-                                <p className="text-sm text-gray-400 mt-1">Fill the form and click predict</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* TRAINING TAB */}
-            {activeTab === 'train' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-                            <Database size={20} className="text-green-600" />
-                            <span>Upload Training Dataset</span>
-                        </h3>
-                        <p className="text-gray-500 mb-6 text-sm">
-                            Upload a CSV file with all 37 variables. Minimum 100 rows recommended for quality training.
-                        </p>
-
-                        <label className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-green-500 transition-colors cursor-pointer group block">
-                            <div className="p-4 bg-gray-50 rounded-full mb-3 group-hover:bg-green-50">
-                                <Upload size={24} className="text-gray-400 group-hover:text-green-600" />
-                            </div>
-                            <p className="font-medium text-gray-700">{file ? file.name : 'Click to upload CSV'}</p>
-                            <p className="text-xs text-gray-400 mt-1">Max file size: 50MB</p>
-                            <input
-                                type="file"
-                                accept=".csv"
-                                className="hidden"
-                                onChange={handleFileUpload}
-                            />
-                        </label>
-
-                        {loading && (
-                            <div className="mt-4 bg-blue-50 p-4 rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-blue-700">Training in progress...</span>
-                                    <span className="text-sm text-blue-600">Please wait</span>
-                                </div>
-                                <div className="w-full bg-blue-200 rounded-full h-2">
-                                    <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-                            <Activity size={20} className="text-purple-600" />
-                            <span>Model Information</span>
-                        </h3>
-
-                        <div className="space-y-3">
-                            {modelInfo.map((model, idx) => (
-                                <div key={idx} className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border border-gray-200">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h4 className="font-semibold text-gray-800">{model.model_type} Model</h4>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${model.is_loaded ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                            {model.is_loaded ? 'Loaded' : 'Not Trained'}
-                                        </span>
-                                    </div>
-                                    {model.is_loaded && (
-                                        <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">Accuracy:</span>
-                                                <span className="font-semibold ml-2">{(model.accuracy * 100).toFixed(1)}%</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Version:</span>
-                                                <span className="font-semibold ml-2">{model.version}</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                            <h4 className="font-semibold text-amber-800 mb-2 text-sm">Required CSV Columns:</h4>
-                            <p className="text-xs text-amber-700 leading-relaxed">
-                                fips, lat, lon, elevation, slope1-8, aspectN/E/S/W/Unknown,
-                                WAT_LAND, NVG_LAND, URB_LAND, GRS_LAND, FOR_LAND, CULTRF_LAND,
-                                CULTIR_LAND, CULT_LAND, SQ1-7
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* SIMULATION TAB */}
-            {activeTab === 'simulation' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-semibold">Real-Time Data Simulation (37 Variables)</h3>
-                            <button
-                                onClick={toggleSimulation}
-                                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${simulationActive
-                                    ? 'bg-red-500 hover:bg-red-600 text-white'
-                                    : 'bg-green-500 hover:bg-green-600 text-white'
-                                    }`}
-                            >
-                                {simulationActive ? (
-                                    <><Activity size={16} className="animate-pulse" /> Stop Simulation</>
-                                ) : (
-                                    <><Play size={16} /> Start Simulation</>
-                                )}
-                            </button>
-                        </div>
-
-                        {simulationActive && (
-                            <div className="mb-4 bg-green-50 border border-green-200 p-3 rounded-lg flex items-center gap-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                <span className="text-sm text-green-700 font-medium">Simulation Active - Generating full 37-variable dataset every 3 seconds</span>
-                            </div>
-                        )}
-
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                            {realtimeData.length > 0 ? (
-                                realtimeData.map((reading, idx) => (
-                                    <div key={idx} className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-100">
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                            {/* Location Data */}
-                                            <div className="col-span-2 md:col-span-4 font-semibold text-gray-700 mb-2 pb-2 border-b border-gray-200">
-                                                Sensor: {reading.sensor_id} | {reading.timestamp}
-                                            </div>
-
-                                            <div>
-                                                <span className="text-gray-600">Lat:</span>
-                                                <span className="font-semibold ml-1">{reading.lat?.toFixed(4)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Lon:</span>
-                                                <span className="font-semibold ml-1">{reading.lon?.toFixed(4)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Elevation:</span>
-                                                <span className="font-semibold ml-1">{reading.elevation?.toFixed(1)}m</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">FIPS:</span>
-                                                <span className="font-semibold ml-1">{reading.fips}</span>
-                                            </div>
-
-                                            {/* Environmental */}
-                                            <div>
-                                                <span className="text-gray-600">Temp:</span>
-                                                <span className="font-semibold ml-1">{reading.temperature?.toFixed(1)}°C</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Humidity:</span>
-                                                <span className="font-semibold ml-1">{reading.humidity?.toFixed(1)}%</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Soil:</span>
-                                                <span className="font-semibold ml-1">{reading.soil_moisture?.toFixed(1)}%</span>
-                                            </div>
-
-                                            {/* Slopes */}
-                                            <div className="col-span-2 md:col-span-4 font-medium text-purple-600 mt-2">Slopes:</div>
-                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                                                <div key={`slope${i}`}>
-                                                    <span className="text-gray-600">S{i}:</span>
-                                                    <span className="font-semibold ml-1">{reading[`slope${i}`]?.toFixed(2)}</span>
-                                                </div>
-                                            ))}
-
-                                            {/* Aspects */}
-                                            <div className="col-span-2 md:col-span-4 font-medium text-orange-600 mt-2">Aspects (%):</div>
-                                            <div>
-                                                <span className="text-gray-600">N:</span>
-                                                <span className="font-semibold ml-1">{reading.aspectN?.toFixed(1)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">E:</span>
-                                                <span className="font-semibold ml-1">{reading.aspectE?.toFixed(1)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">S:</span>
-                                                <span className="font-semibold ml-1">{reading.aspectS?.toFixed(1)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">W:</span>
-                                                <span className="font-semibold ml-1">{reading.aspectW?.toFixed(1)}</span>
-                                            </div>
-
-                                            {/* Land Cover */}
-                                            <div className="col-span-2 md:col-span-4 font-medium text-green-600 mt-2">Land Cover (%):</div>
-                                            <div>
-                                                <span className="text-gray-600">Water:</span>
-                                                <span className="font-semibold ml-1">{reading.WAT_LAND?.toFixed(1)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Urban:</span>
-                                                <span className="font-semibold ml-1">{reading.URB_LAND?.toFixed(1)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Grass:</span>
-                                                <span className="font-semibold ml-1">{reading.GRS_LAND?.toFixed(1)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Forest:</span>
-                                                <span className="font-semibold ml-1">{reading.FOR_LAND?.toFixed(1)}</span>
-                                            </div>
-
-                                            {/* Soil Quality */}
-                                            <div className="col-span-2 md:col-span-4 font-medium text-amber-600 mt-2">Soil Quality:</div>
-                                            {[1, 2, 3, 4, 5, 6, 7].map(i => (
-                                                <div key={`sq${i}`}>
-                                                    <span className="text-gray-600">SQ{i}:</span>
-                                                    <span className="font-semibold ml-1">{reading[`SQ${i}`]?.toFixed(1)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-center py-12 text-gray-400">
-                                    <Activity size={48} className="mx-auto mb-3 opacity-50" />
-                                    <p>No data yet. Start the simulation to see real-time readings with all 37 variables.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                        <div className="space-y-3">
-                            <button
-                                onClick={() => {
-                                    fetchLatestSensorData();
-                                    setActiveTab('predict');
-                                }}
-                                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium transition-all"
-                            >
-                                Use Latest Data for Prediction
-                            </button>
-
-                            <button
-                                onClick={fetchRecentReadings}
-                                className="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg font-medium transition-all"
-                            >
-                                Refresh Data
-                            </button>
-
-                            <div className="pt-4 border-t">
-                                <p className="text-sm text-gray-600 mb-2">Simulation generates all 37 variables:</p>
-                                <ul className="text-xs text-gray-500 space-y-1">
-                                    <li>• Location (4): fips, lat, lon, elevation</li>
-                                    <li>• Slopes (8): slope1-8</li>
-                                    <li>• Aspects (5): N, E, S, W, Unknown</li>
-                                    <li>• Land Cover (8): Water, Urban, Grass, etc.</li>
-                                    <li>• Soil Quality (7): SQ1-7</li>
-                                    <li>• Environmental (5): temp, humidity, etc.</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Quick Simulation Link */}
+            <div className="text-center text-sm text-gray-400">
+                Data is fetched from the <a href="/sensors" className="underline hover:text-blue-500">Live Simulation Service</a>
+            </div>
         </div>
     );
 }
