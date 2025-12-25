@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Activity, Wifi, Terminal, Download, Database } from 'lucide-react';
+import { Play, Square, Activity, Wifi, Terminal, Download, Database, Droplet } from 'lucide-react';
 
 export default function SensorIngestion() {
     const [simulating, setSimulating] = useState(false);
@@ -113,6 +113,27 @@ export default function SensorIngestion() {
         setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 15));
     };
 
+    const sendToWaterPrediction = async () => {
+        try {
+            // Get random sensor data from the prevision-eau service
+            const response = await fetch('http://localhost:8003/random-sensor-data');
+            const sensorData = await response.json();
+            
+            addLog(`Sending sensor data to water prediction: T=${sensorData.temperature}°C, H=${sensorData.humidity}%`);
+            
+            // Navigate to water prediction page with the data
+            // Store the data in localStorage so the water prediction page can use it
+            localStorage.setItem('sensorDataForPrediction', JSON.stringify(sensorData));
+            
+            // Navigate to water prediction page
+            window.location.href = '/water-prediction';
+            
+        } catch (error) {
+            console.error('Error sending to water prediction:', error);
+            addLog(`Error: ${error.message}`);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header Stats */}
@@ -158,6 +179,20 @@ export default function SensorIngestion() {
                             }`}
                     >
                         {simulating ? <><Square /> <span>Stop Simulation</span></> : <><Play /> <span>Start Simulation</span></>}
+                    </button>
+
+                    {/* New button to send data to water prediction */}
+                    <button
+                        onClick={sendToWaterPrediction}
+                        disabled={!simulating}
+                        className={`w-full mt-3 py-3 rounded-xl font-medium text-sm flex items-center justify-center space-x-2 transition-all ${
+                            simulating 
+                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                    >
+                        <Droplet size={16} />
+                        <span>Send to Water Prediction</span>
                     </button>
 
                 </div>

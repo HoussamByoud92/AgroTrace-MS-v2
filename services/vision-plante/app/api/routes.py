@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon, Point
 import cv2
@@ -31,6 +32,25 @@ router = APIRouter()
 @router.get("/", tags=["Root"])
 async def root():
     return {"service": "VisionPlante", "version": "1.0.0", "status": "running"}
+
+@router.get("/api/v1/health", tags=["Health"])
+async def health_check(db: Session = Depends(get_db)):
+    """Health check with database connection test"""
+    try:
+        # Test database connection
+        result = db.execute(text("SELECT COUNT(*) FROM fields"))
+        field_count = result.scalar()
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "fields_count": field_count
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e)
+        }
 
 @router.post("/api/v1/fields", response_model=FieldResponse, tags=["Fields"])
 async def create_field(field_data: FieldCreate, db: Session = Depends(get_db)):
@@ -68,20 +88,38 @@ async def create_field(field_data: FieldCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/v1/fields", response_model=list[FieldResponse], tags=["Fields"])
-async def get_fields(user_id: int = 2, db: Session = Depends(get_db)):
+async def get_fields(user_id: int = None, db: Session = Depends(get_db)):
     """Get all fields for a user"""
     try:
-        # TODO: Get user_id from auth token (hardcoded to 2 for now to match frontend default)
-        fields = db.query(Field).filter(Field.user_id == user_id).all()
+        # Test database connection first
+        try:
+            test_query = db.execute("SELECT COUNT(*) FROM fields")
+            total_fields = test_query.scalar()
+            logger.info(f"Database connection test: {total_fields} total fields in database")
+        except Exception as db_error:
+            logger.error(f"Database connection error: {db_error}")
+            raise HTTPException(status_code=500, detail=f"Database connection failed: {db_error}")
+        
+        # Get all fields if no user_id specified, otherwise filter by user_id
+        if user_id is not None:
+            fields = db.query(Field).filter(Field.user_id == user_id).all()
+            logger.info(f"Filtered query for user_id {user_id}: found {len(fields)} fields")
+        else:
+            fields = db.query(Field).all()
+            logger.info(f"Unfiltered query: found {len(fields)} fields")
+        
+        logger.info(f"Found {len(fields)} fields in database")
         
         response = []
         for f in fields:
+            logger.info(f"Processing field {f.id}: {f.name}, user_id: {f.user_id}")
             # Convert PostGIS geometry to coordinates
             # Using geoalchemy2.shape.to_shape to get Shapely object
             from geoalchemy2.shape import to_shape
             
             try:
                 shapely_poly = to_shape(f.boundary)
+                logger.info(f"Converted geometry for field {f.id}")
                 # Extract coordinates (outer shell only for simplicity)
                 coords = []
                 if shapely_poly and shapely_poly.exterior:
@@ -90,6 +128,7 @@ async def get_fields(user_id: int = 2, db: Session = Depends(get_db)):
                     # Remove last point if duplicate (closed ring)
                     if len(coords) > 0 and coords[0] == coords[-1]:
                         coords.pop()
+                    logger.info(f"Extracted {len(coords)} coordinates for field {f.id}")
                 
                 response.append(FieldResponse(
                     id=f.id,
@@ -98,10 +137,12 @@ async def get_fields(user_id: int = 2, db: Session = Depends(get_db)):
                     area_hectares=f.area_hectares,
                     user_id=f.user_id
                 ))
+                logger.info(f"Added field {f.id} to response")
             except Exception as parse_error:
                 logger.error(f"Error parsing geometry for field {f.id}: {parse_error}")
                 continue
                 
+        logger.info(f"Returning {len(response)} fields")
         return response
     except Exception as e:
         logger.error(f"Error fetching fields: {e}")

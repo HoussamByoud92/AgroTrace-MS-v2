@@ -63,12 +63,12 @@ export default function Layout() {
                         path="/irrigation-reco"
                         active={location.pathname === '/irrigation-reco'}
                     />
-                    <SidebarItem
+                   {/* <SidebarItem
                         icon={Activity}
                         label="Sensor Simulation"
                         path="/sensors"
                         active={location.pathname === '/sensors'}
-                    />
+                    /> */}
                     <SidebarItem
                         icon={Database}
                         label="Databases"

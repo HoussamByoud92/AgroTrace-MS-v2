@@ -235,6 +235,41 @@ def get_table_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/databases/{db_name}/tables/{table_name}/clear")
+def clear_table(db_name: str, table_name: str):
+    """Clear all data from a table (DELETE FROM table)"""
+    try:
+        engine = get_engine(db_name)
+        inspector = inspect(engine)
+        
+        # Check if table exists
+        if table_name not in inspector.get_table_names():
+            raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
+        
+        # Only allow clearing application tables for safety
+        app_tables = APPLICATION_TABLES.get(db_name, set())
+        if app_tables and table_name not in app_tables:
+            raise HTTPException(status_code=403, detail=f"Clearing table '{table_name}' is not allowed")
+        
+        with engine.connect() as conn:
+            # Get count before clearing
+            count_result = conn.execute(text(f'SELECT COUNT(*) FROM "{table_name}"'))
+            rows_before = count_result.scalar()
+            
+            # Clear the table
+            conn.execute(text(f'DELETE FROM "{table_name}"'))
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": f"Successfully cleared table '{table_name}'",
+                "rows_deleted": rows_before
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

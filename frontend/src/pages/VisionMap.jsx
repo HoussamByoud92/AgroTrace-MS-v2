@@ -288,9 +288,9 @@ export default function VisionMap() {
             try {
                 // Get user ID (mock for now if not in local storage, matching backend default)
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
-                // const userId = user.id || 2; 
+                const userId = user.id || 1; // Default to 1 instead of 2
 
-                const response = await fetch(`${visionPlantUrl}/api/v1/fields`);
+                const response = await fetch(`${visionPlantUrl}/api/v1/fields?user_id=${userId}`);
                 if (!response.ok) throw new Error('Failed to fetch fields');
 
                 const data = await response.json();

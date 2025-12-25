@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Server, HardDrive, ChevronDown, ChevronRight, Table, X, Loader2, RefreshCw } from 'lucide-react';
+import { Database, Server, HardDrive, ChevronDown, ChevronRight, Table, X, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8005';
 
@@ -8,6 +8,7 @@ const SchemaDataModal = ({ isOpen, onClose, dbName, tableName }) => {
     const [schema, setSchema] = useState(null);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [clearing, setClearing] = useState(false);
     const [page, setPage] = useState(1);
     const [error, setError] = useState(null);
 
@@ -44,6 +45,34 @@ const SchemaDataModal = ({ isOpen, onClose, dbName, tableName }) => {
         }
     };
 
+    const clearTable = async () => {
+        if (!confirm(`Are you sure you want to clear ALL data from table "${tableName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        setClearing(true);
+        try {
+            const res = await fetch(`${API_BASE}/databases/${dbName}/tables/${tableName}/clear`, {
+                method: 'DELETE'
+            });
+            
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || 'Failed to clear table');
+            }
+            
+            const result = await res.json();
+            alert(`Successfully cleared table "${tableName}". ${result.rows_deleted} rows deleted.`);
+            
+            // Refresh the data to show empty table
+            fetchData(1);
+        } catch (err) {
+            alert(`Error clearing table: ${err.message}`);
+        } finally {
+            setClearing(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -56,9 +85,23 @@ const SchemaDataModal = ({ isOpen, onClose, dbName, tableName }) => {
                         <h2 className="text-lg font-semibold text-gray-800">{tableName}</h2>
                         <span className="text-sm text-gray-500">in {dbName}</span>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-                        <X size={20} className="text-gray-500" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={clearTable}
+                            disabled={clearing}
+                            className="flex items-center space-x-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {clearing ? (
+                                <Loader2 className="animate-spin" size={14} />
+                            ) : (
+                                <Trash2 size={14} />
+                            )}
+                            <span>{clearing ? 'Clearing...' : 'Clear Table'}</span>
+                        </button>
+                        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+                            <X size={20} className="text-gray-500" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tabs */}

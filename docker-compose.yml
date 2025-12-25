@@ -141,6 +141,9 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgis:5432/${POSTGIS_DB}
+    volumes:
+      - ./services/vision-plante:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       - minio
       - kafka
@@ -195,6 +198,9 @@ services:
       TIMESCALE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${TIMESCALE_DB}
       AUTH_DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${AUTH_DB}
       POSTGIS_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgis:5432/${POSTGIS_DB}
+    volumes:
+      - ./services/db-explorer:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8005:8000"
     depends_on:
