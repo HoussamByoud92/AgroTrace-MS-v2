@@ -2,10 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from pathlib import Path
+import os
+import py_eureka_client.eureka_client as eureka_client
 
 from app.core.config import settings
 from app.api.routes import router
 from app.services.kafka_producer import kafka_producer
+
+EUREKA_SERVER = os.getenv("EUREKA_SERVER", "http://eureka-server:8761/eureka")
 
 # Setup logging
 logging.basicConfig(
@@ -44,6 +48,18 @@ async def startup_event():
     logger.info("Starting VisionPlante service...")
     logger.info(f"Model path: {settings.MODEL_PATH}")
     logger.info(f"Device: {settings.DEVICE}")
+    
+    # Register with Eureka
+    try:
+        await eureka_client.init_async(
+            eureka_server=EUREKA_SERVER,
+            app_name="vision-plante",
+            instance_port=8000,
+            instance_host="vision-plante"
+        )
+        logger.info("Registered with Eureka")
+    except Exception as e:
+        logger.warning(f"Failed to register with Eureka: {e}")
 
 
 @app.on_event("shutdown")

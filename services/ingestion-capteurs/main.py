@@ -7,8 +7,25 @@ import random
 import time
 import asyncio
 from typing import Optional
+import py_eureka_client.eureka_client as eureka_client
+
+EUREKA_SERVER = os.getenv("EUREKA_SERVER", "http://eureka-server:8761/eureka")
 
 app = FastAPI()
+
+# Eureka registration on startup
+@app.on_event("startup")
+async def startup_event():
+    try:
+        await eureka_client.init_async(
+            eureka_server=EUREKA_SERVER,
+            app_name="ingestion-capteurs",
+            instance_port=8000,
+            instance_host="ingestion-capteurs"
+        )
+        print("Registered with Eureka")
+    except Exception as e:
+        print(f"Failed to register with Eureka: {e}")
 
 # Configuration
 DEFAULT_LAT = 33.57

@@ -7,3 +7,4 @@ sqlalchemy
 minio
 requests
 pandas
+py-eureka-client

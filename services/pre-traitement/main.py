@@ -10,12 +10,27 @@ import rasterio
 from rasterio.windows import Window
 import numpy as np
 from PIL import Image
+import py_eureka_client.eureka_client as eureka_client
 
 # Config
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
 MINIO_ACCESS = os.getenv("MINIO_ACCESS_KEY", "minio_admin")
 MINIO_SECRET = os.getenv("MINIO_SECRET_KEY", "minio_password")
+EUREKA_SERVER = os.getenv("EUREKA_SERVER", "http://eureka-server:8761/eureka")
+
+# Register with Eureka
+def register_eureka():
+    try:
+        eureka_client.init(
+            eureka_server=EUREKA_SERVER,
+            app_name="pre-traitement",
+            instance_port=8000,
+            instance_host="pre-traitement"
+        )
+        print("Registered with Eureka")
+    except Exception as e:
+        print(f"Failed to register with Eureka: {e}")
 
 # MinIO Client
 minio_client = Minio(
@@ -154,6 +169,9 @@ def process_image_event(data):
         print(f"Error processing image {filename}: {e}")
 
 if __name__ == "__main__":
+    # Register with Eureka first
+    register_eureka()
+    
     if consumer:
         print("Preprocessing service started...")
         for message in consumer:

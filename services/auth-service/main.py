@@ -9,13 +9,29 @@ from passlib.context import CryptContext
 import jwt
 import datetime
 import os
+import py_eureka_client.eureka_client as eureka_client
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://agro_user:agro_password@timescaledb:5432/agro_auth")
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecretkey")
+EUREKA_SERVER = os.getenv("EUREKA_SERVER", "http://eureka-server:8761/eureka")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 
 app = FastAPI()
+
+# Eureka registration on startup
+@app.on_event("startup")
+async def startup_event():
+    try:
+        await eureka_client.init_async(
+            eureka_server=EUREKA_SERVER,
+            app_name="auth-service",
+            instance_port=8000,
+            instance_host="auth-service"
+        )
+        print("Registered with Eureka")
+    except Exception as e:
+        print(f"Failed to register with Eureka: {e}")
 
 # CORS Configuration
 app.add_middleware(

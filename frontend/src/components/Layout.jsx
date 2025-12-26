@@ -52,18 +52,12 @@ export default function Layout() {
                         active={location.pathname === '/vision-map'}
                     />
                     <SidebarItem
-                        icon={CloudRain}
-                        label="Prevision Eau"
-                        path="/water-prediction"
-                        active={location.pathname === '/water-prediction'}
-                    />
-                    <SidebarItem
                         icon={Droplets}
                         label="Irrigation Reco"
                         path="/irrigation-reco"
                         active={location.pathname === '/irrigation-reco'}
                     />
-                   {/* <SidebarItem
+                    {/* <SidebarItem
                         icon={Activity}
                         label="Sensor Simulation"
                         path="/sensors"
@@ -91,10 +85,9 @@ export default function Layout() {
                     <h1 className="text-lg font-semibold text-gray-700">
                         {location.pathname === '/' ? 'Overview' :
                             location.pathname === '/vision-map' ? 'Crop Stress Detection' :
-                                location.pathname === '/water-prediction' ? 'Water Requirement Prediction' :
-                                    location.pathname === '/irrigation-reco' ? 'Irrigation Recognition' :
-                                        location.pathname === '/sensors' ? 'Sensor Ingestion Control' :
-                                            location.pathname === '/databases' ? 'Databases' : 'Overview'}
+                                location.pathname === '/irrigation-reco' ? 'Irrigation Recognition' :
+                                    location.pathname === '/sensors' ? 'Sensor Ingestion Control' :
+                                        location.pathname === '/databases' ? 'Databases' : 'Overview'}
                     </h1>
                     <div className="flex items-center space-x-4">
                         <span className="text-sm font-medium text-gray-700 mr-2">{user.username}</span>

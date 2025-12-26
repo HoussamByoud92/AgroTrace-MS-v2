@@ -4,12 +4,29 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, text, inspect
 from typing import List, Dict, Any, Optional
 import os
+import py_eureka_client.eureka_client as eureka_client
+
+EUREKA_SERVER = os.getenv("EUREKA_SERVER", "http://eureka-server:8761/eureka")
 
 app = FastAPI(
     title="DB Explorer Service",
     description="Database introspection API for AgroTrace",
     version="1.0.0"
 )
+
+# Eureka registration on startup
+@app.on_event("startup")
+async def startup_event():
+    try:
+        await eureka_client.init_async(
+            eureka_server=EUREKA_SERVER,
+            app_name="db-explorer",
+            instance_port=8000,
+            instance_host="db-explorer"
+        )
+        print("Registered with Eureka")
+    except Exception as e:
+        print(f"Failed to register with Eureka: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +55,12 @@ DATABASES = {
         "display_name": "PostGIS",
         "type": "PostgreSQL + PostGIS",
         "description": "Spatial data for fields and detections"
+    },
+    "reco_db": {
+        "url": os.getenv("POSTGIS_URL", "postgresql://agro_user:agro_password@postgis:5432/agro_gis"),
+        "display_name": "Recommendations DB",
+        "type": "PostgreSQL + Irrigation Logs",
+        "description": "Historical irrigation plans and AI decisions"
     }
 }
 
@@ -79,9 +102,10 @@ def get_engine(db_name: str):
 
 # Known application tables for each database (whitelist approach)
 APPLICATION_TABLES = {
-    "timescaledb": {"sensor_data", "sensor_readings"},  # Add your actual TimescaleDB tables here
+    "timescaledb": {"sensor_data", "sensor_readings"},
     "auth_db": {"users"},
-    "postgis": {"fields", "analyzed_images", "detections"},
+    "postgis": {"fields", "analyzed_images", "detections", "irrigation_plans"},
+    "reco_db": {"irrigation_plans"},
 }
 
 def filter_to_app_tables(db_name: str, tables: list) -> list:

@@ -20,12 +20,15 @@ import json
 import io
 import asyncio
 from pathlib import Path
+import py_eureka_client.eureka_client as eureka_client
 
 # ML Imports
 import tensorflow as tf
 from tensorflow import keras
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+
+EUREKA_SERVER = os.getenv("EUREKA_SERVER", "http://eureka-server:8761/eureka")
 
 app = FastAPI()
 
@@ -130,6 +133,8 @@ class WaterPredictionInput(BaseModel):
 class PredictionResult(BaseModel):
     predicted_water_need_mm: float
     irrigation_duration_hours: float
+    irrigation_hours: int = 0
+    irrigation_minutes: int = 0
     confidence: float
     recommendation: str
     model_used: str
@@ -163,11 +168,14 @@ def input_to_features(data: WaterPredictionInput) -> np.ndarray:
     ]
     return np.array(features).reshape(1, -1)
 
-def calculate_irrigation_duration(water_need_mm: float, flow_rate_mm_per_hour: float = 5.0) -> float:
-    """Calculate irrigation duration based on water need and flow rate"""
+def calculate_irrigation_duration(water_need_mm: float, flow_rate_mm_per_hour: float = 5.0) -> dict:
+    """Calculate irrigation duration based on water need and flow rate, returns hours and minutes"""
     if water_need_mm <= 0:
-        return 0.0
-    return round(water_need_mm / flow_rate_mm_per_hour, 2)
+        return {"hours": 0, "minutes": 0, "total_hours": 0.0}
+    total_hours = water_need_mm / flow_rate_mm_per_hour
+    hours = int(total_hours)
+    minutes = int((total_hours - hours) * 60)
+    return {"hours": hours, "minutes": minutes, "total_hours": round(total_hours, 2)}
 
 def get_recommendation(water_need_mm: float) -> str:
     """Generate recommendation based on water need"""
@@ -185,12 +193,14 @@ def weather_to_agricultural_features(df: pd.DataFrame) -> pd.DataFrame:
     # Create synthetic agricultural features based on weather data
     df_agri = df.copy()
     
-    # Basic weather features
-    df_agri['temperature'] = df_agri['T (degC)']
-    df_agri['humidity'] = df_agri['rh (%)']
-    df_agri['pressure'] = df_agri['p (mbar)']
-    df_agri['wind_speed'] = df_agri['wv (m/s)']
-    df_agri['dew_point'] = df_agri['Tdew (degC)']
+    # Basic weather features - support both old and new column naming conventions
+    # New format: T, rh, p, wv, Tdew
+    # Old format: T (degC), rh (%), p (mbar), wv (m/s), Tdew (degC)
+    df_agri['temperature'] = df_agri['T'] if 'T' in df_agri.columns else df_agri.get('T (degC)', 20)
+    df_agri['humidity'] = df_agri['rh'] if 'rh' in df_agri.columns else df_agri.get('rh (%)', 50)
+    df_agri['pressure'] = df_agri['p'] if 'p' in df_agri.columns else df_agri.get('p (mbar)', 1013)
+    df_agri['wind_speed'] = df_agri['wv'] if 'wv' in df_agri.columns else df_agri.get('wv (m/s)', 2)
+    df_agri['dew_point'] = df_agri['Tdew'] if 'Tdew' in df_agri.columns else df_agri.get('Tdew (degC)', 10)
     
     # Calculate water need based on weather conditions
     # Higher temperature and lower humidity = more water needed
@@ -244,6 +254,14 @@ def create_lstm_model(input_dim: int = 5) -> keras.Model:
 def train_lstm_model(df: pd.DataFrame) -> Dict:
     """Train LSTM model on provided data"""
     try:
+        # Sample data if too large (for faster training while keeping diversity)
+        max_samples = 5000
+        if len(df) > max_samples:
+            # Sample evenly from entire dataset to capture all seasons/conditions
+            sample_indices = np.linspace(0, len(df)-1, max_samples, dtype=int)
+            df = df.iloc[sample_indices].reset_index(drop=True)
+            print(f"Sampled {max_samples} rows from dataset for training")
+        
         # Convert weather data to agricultural features
         df_agri = weather_to_agricultural_features(df)
         
@@ -356,11 +374,14 @@ def generate_forecast(input_data: WaterPredictionInput, days: int = 3) -> List[D
         water_need = predict_with_lstm(forecast_input)
         water_need = max(0, water_need)
         
+        duration = calculate_irrigation_duration(water_need)
         forecast.append({
             "day": day,
             "date": (datetime.now() + timedelta(days=day)).strftime("%Y-%m-%d"),
             "water_need_mm": round(water_need, 2),
-            "irrigation_hours": calculate_irrigation_duration(water_need),
+            "irrigation_hours": duration["hours"],
+            "irrigation_minutes": duration["minutes"],
+            "irrigation_total": duration["total_hours"],
             "recommendation": get_recommendation(water_need),
             "temperature": round(forecast_input.temperature, 1),
             "humidity": round(forecast_input.humidity, 1)
@@ -389,12 +410,14 @@ async def predict_water_needs(input_data: WaterPredictionInput):
         # Get recommendation
         recommendation = get_recommendation(water_need)
         
-        # Generate 3-day forecast
-        forecast = generate_forecast(input_data, days=3)
+        # Generate 7-day forecast
+        forecast = generate_forecast(input_data, days=7)
         
         return PredictionResult(
             predicted_water_need_mm=round(water_need, 2),
-            irrigation_duration_hours=duration,
+            irrigation_duration_hours=duration["total_hours"],
+            irrigation_hours=duration["hours"],
+            irrigation_minutes=duration["minutes"],
             confidence=round(confidence, 2),
             recommendation=recommendation,
             model_used="LSTM",
@@ -495,12 +518,19 @@ async def get_random_sensor_data():
         # Get random row
         random_row = df.sample(n=1).iloc[0]
         
+        # Support both old and new column formats
+        temp_col = 'T' if 'T' in df.columns else 'T (degC)'
+        rh_col = 'rh' if 'rh' in df.columns else 'rh (%)'
+        p_col = 'p' if 'p' in df.columns else 'p (mbar)'
+        wv_col = 'wv' if 'wv' in df.columns else 'wv (m/s)'
+        tdew_col = 'Tdew' if 'Tdew' in df.columns else 'Tdew (degC)'
+        
         return {
-            "temperature": float(random_row['T (degC)']),
-            "humidity": float(random_row['rh (%)']),
-            "pressure": float(random_row['p (mbar)']),
-            "wind_speed": float(random_row['wv (m/s)']),
-            "dew_point": float(random_row['Tdew (degC)'])
+            "temperature": float(random_row[temp_col]),
+            "humidity": float(random_row[rh_col]),
+            "pressure": float(random_row[p_col]),
+            "wind_speed": float(random_row[wv_col]),
+            "dew_point": float(random_row[tdew_col])
         }
         
     except Exception as e:
@@ -527,6 +557,18 @@ def health():
 @app.on_event("startup")
 async def load_models():
     """Load pre-trained models if they exist, otherwise train on startup"""
+    # Register with Eureka
+    try:
+        await eureka_client.init_async(
+            eureka_server=EUREKA_SERVER,
+            app_name="prevision-eau",
+            instance_port=8000,
+            instance_host="prevision-eau"
+        )
+        print("Registered with Eureka")
+    except Exception as e:
+        print(f"Failed to register with Eureka: {e}")
+    
     try:
         lstm_model_path = MODELS_DIR / "lstm_model.keras"
         lstm_scaler_path = MODELS_DIR / "lstm_scaler.joblib"

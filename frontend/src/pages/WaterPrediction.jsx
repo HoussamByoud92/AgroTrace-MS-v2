@@ -20,7 +20,7 @@ export default function WaterPrediction() {
     useEffect(() => {
         fetchModelInfo();
         checkTrainingStatus();
-        
+
         // Check if there's sensor data from the sensors page
         const sensorData = localStorage.getItem('sensorDataForPrediction');
         if (sensorData) {
@@ -249,37 +249,64 @@ export default function WaterPrediction() {
                                 {prediction && (
                                     <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-xl border border-blue-200">
                                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Prediction Results</h3>
-                                        
+
+                                        {/* Main Prediction */}
                                         <div className="grid grid-cols-2 gap-4 mb-6">
-                                            <div className="text-center">
-                                            
-                                                
+                                            <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                                                <div className="text-3xl font-bold text-blue-600">
+                                                    {prediction.predicted_water_need_mm?.toFixed(1) || '0.0'}
+                                                </div>
+                                                <div className="text-sm text-gray-600">Water Need (mm)</div>
                                             </div>
-                                           
-                                               
+                                            <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                                                <div className="text-3xl font-bold text-cyan-600">
+                                                    {prediction.irrigation_hours || 0}h {prediction.irrigation_minutes || 0}m
+                                                </div>
+                                                <div className="text-sm text-gray-600">Irrigation Duration</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Recommendation */}
+                                        <div className={`p-4 rounded-lg mb-4 ${prediction.recommendation?.includes('No irrigation')
+                                            ? 'bg-green-100 text-green-800 border border-green-300'
+                                            : prediction.recommendation?.includes('Heavy')
+                                                ? 'bg-red-100 text-red-800 border border-red-300'
+                                                : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                                            }`}>
+                                            <div className="font-semibold">Recommendation:</div>
+                                            <div>{prediction.recommendation}</div>
                                         </div>
 
                                         <div className="space-y-3">
-                                         
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Confidence:</span>
+                                                <span className="font-semibold">{(prediction.confidence * 100).toFixed(0)}%</span>
+                                            </div>
                                             <div className="flex justify-between">
                                                 <span className="text-gray-600">Model:</span>
                                                 <span className="font-semibold">{prediction.model_used}</span>
                                             </div>
-                                        
                                         </div>
 
-                                        {/* 3-Day Forecast */}
+                                        {/* 7-Day Forecast */}
                                         {prediction.forecast_days && prediction.forecast_days.length > 0 && (
                                             <div className="mt-6 pt-6 border-t border-blue-200">
-                                                <h4 className="font-semibold text-gray-800 mb-3">3-Day Forecast</h4>
-                                                <div className="space-y-2">
+                                                <h4 className="font-semibold text-gray-800 mb-3">7-Day Forecast</h4>
+                                                <div className="space-y-2 max-h-64 overflow-y-auto">
                                                     {prediction.forecast_days.map((day, idx) => (
                                                         <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-lg">
                                                             <div>
                                                                 <div className="font-medium">Day {day.day} ({day.date})</div>
-                                                                <div className="text-sm text-gray-600">{day.temperature}°C, {day.humidity}% humidity</div>
+                                                                <div className="text-sm text-gray-600">
+                                                                    {day.water_need_mm?.toFixed(1)} mm water need
+                                                                </div>
                                                             </div>
-                                                        
+                                                            <div className="text-right">
+                                                                <div className="font-semibold text-blue-600">
+                                                                    {day.irrigation_hours || 0}h {day.irrigation_minutes || 0}m
+                                                                </div>
+                                                                <div className="text-xs text-gray-500">{day.temperature}°C, {day.humidity}%</div>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -322,17 +349,16 @@ export default function WaterPrediction() {
                                 <div className="bg-gray-50 p-4 rounded-lg">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="font-medium">Training Status</span>
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                            trainingStatus.is_training ? 'bg-blue-100 text-blue-700' : 
-                                            trainingStatus.status === 'completed' ? 'bg-green-100 text-green-700' : 
-                                            'bg-gray-100 text-gray-700'
-                                        }`}>
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${trainingStatus.is_training ? 'bg-blue-100 text-blue-700' :
+                                            trainingStatus.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                'bg-gray-100 text-gray-700'
+                                            }`}>
                                             {trainingStatus.status}
                                         </span>
                                     </div>
                                     {trainingStatus.is_training && (
                                         <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div 
+                                            <div
                                                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                                 style={{ width: `${trainingStatus.progress}%` }}
                                             ></div>

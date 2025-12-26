@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Server, HardDrive, ChevronDown, ChevronRight, Table, X, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Database, Server, HardDrive, ChevronDown, ChevronRight, Table, X, Loader2, RefreshCw, Trash2, Zap } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8005';
 
@@ -55,15 +55,15 @@ const SchemaDataModal = ({ isOpen, onClose, dbName, tableName }) => {
             const res = await fetch(`${API_BASE}/databases/${dbName}/tables/${tableName}/clear`, {
                 method: 'DELETE'
             });
-            
+
             if (!res.ok) {
                 const errorData = await res.json();
                 throw new Error(errorData.detail || 'Failed to clear table');
             }
-            
+
             const result = await res.json();
             alert(`Successfully cleared table "${tableName}". ${result.rows_deleted} rows deleted.`);
-            
+
             // Refresh the data to show empty table
             fetchData(1);
         } catch (err) {
@@ -233,12 +233,14 @@ const DatabaseCard = ({ database, onTableClick }) => {
     const icons = {
         timescaledb: HardDrive,
         auth_db: Server,
-        postgis: Database
+        postgis: Database,
+        reco_db: Zap
     };
     const colors = {
         timescaledb: 'bg-blue-600',
         auth_db: 'bg-orange-600',
-        postgis: 'bg-green-600'
+        postgis: 'bg-green-600',
+        reco_db: 'bg-emerald-600'
     };
 
     const Icon = icons[database.name] || Database;

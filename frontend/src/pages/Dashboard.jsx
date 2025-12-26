@@ -19,40 +19,47 @@ const StatCard = ({ icon: Icon, label, value, unit, color }) => (
 
 export default function Dashboard() {
     const [readings, setReadings] = useState([]);
+    const [recommendations, setRecommendations] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Fetch forecast data and manage 2-hour sliding window
+    // Fetch forecast data and recommendations
     useEffect(() => {
-        const fetchForecast = async () => {
+        const fetchDashboardData = async () => {
             try {
-                // Fetch 12 future intervals (24 hours) from the proxy endpoint
-                const response = await axios.get('/api/ingest/forecast/15min');
-                if (response.data && Array.isArray(response.data)) {
-                    const formattedData = response.data.map(r => ({
+                // Fetch 15min forecast
+                const forecastRes = await axios.get('/api/ingest/forecast/15min');
+                if (forecastRes.data && Array.isArray(forecastRes.data)) {
+                    const formattedData = forecastRes.data.map(r => ({
                         ...r,
-                        // Clean 12-hour time for X-axis (e.g. 12:00 AM)
                         time: new Date(r.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
                     }));
                     setReadings(formattedData);
                 }
+
+                // Fetch recent recommendations
+                const recoRes = await axios.get('/api/reco/history?limit=5');
+                if (recoRes.data && Array.isArray(recoRes.data)) {
+                    setRecommendations(recoRes.data);
+                }
+
                 setLoading(false);
             } catch (e) {
-                console.error("Forecast API Fetch Error:", e);
+                console.error("Dashboard Data Fetch Error:", e);
+                setLoading(false);
             }
         };
 
-        fetchForecast();
-        // Refresh every 2 hours (2 * 60 * 60 * 1000 = 7,200,000 ms)
-        const interval = setInterval(fetchForecast, 7200000);
+        fetchDashboardData();
+        const interval = setInterval(fetchDashboardData, 30000); // 30 sec refresh for recommendations
         return () => clearInterval(interval);
     }, []);
 
     if (loading) return <div className="flex items-center justify-center min-h-screen">Loading Dashboard...</div>;
 
-    const current = readings[0] || {}; // Use first point as current forecast
+    const current = readings[0] || {};
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 text-gray-800">
             {/* Top Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard icon={Thermometer} label="Forecast Temperature" value={current.temperature?.toFixed(1)} unit="°C" color="bg-orange-500" />
@@ -64,7 +71,7 @@ export default function Dashboard() {
             {/* Main Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Temperature</h3>
+                    <h3 className="text-lg font-semibold mb-4">Temperature Forecast</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={readings}>
@@ -85,7 +92,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Humidity</h3>
+                    <h3 className="text-lg font-semibold mb-4">Humidity Forecast</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={readings}>
@@ -106,7 +113,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Soil Moisture</h3>
+                    <h3 className="text-lg font-semibold mb-4">Soil Moisture Forecast</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={readings}>
@@ -121,7 +128,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Wind Speed</h3>
+                    <h3 className="text-lg font-semibold mb-4">Wind Speed Forecast</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={readings}>
@@ -136,23 +143,40 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Recent Alerts List */}
+            {/* Recent Recommendations List */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b">
-                    <h3 className="text-lg font-semibold text-gray-800">Recent Recommendations</h3>
+                <div className="px-6 py-4 border-b flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-800">Recent AI Recommendations</h3>
+                    <span className="text-xs text-gray-400">Live Updates</span>
                 </div>
-                <div className="divide-y">
-                    {[1, 2, 3].map((_, i) => (
-                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                            <div>
-                                <p className="font-medium text-gray-800">Zone A-{i + 1}: Irrigation Required</p>
-                                <p className="text-sm text-gray-500">Soil moisture dropped below 30%</p>
+                <div className="divide-y overflow-y-auto max-h-96">
+                    {recommendations.length > 0 ? recommendations.map((reco, i) => (
+                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-2 h-2 rounded-full ${reco.recommendation?.toLowerCase().includes('urgent') ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
+                                <div>
+                                    <p className="font-bold text-gray-800">
+                                        Field {reco.zone_id}: {reco.recommendation}
+                                    </p>
+                                    <p className="text-sm text-gray-500 italic">
+                                        {reco.details?.split('Factors:')[1] || reco.details}
+                                    </p>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">
+                                            {reco.water_amount_mm?.toFixed(1)} mm
+                                        </span>
+                                        <span className="text-[10px] text-gray-400">
+                                            {new Date(reco.timestamp).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <span className="text-xs font-semibold px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full">
-                                Pending
-                            </span>
                         </div>
-                    ))}
+                    )) : (
+                        <div className="px-6 py-8 text-center text-gray-400">
+                            No recommendations logged yet. Run a diagnostic in Irrigation Reco!
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

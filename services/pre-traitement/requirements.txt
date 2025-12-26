@@ -4,3 +4,4 @@ minio
 rasterio
 numpy
 Pillow
+py-eureka-client

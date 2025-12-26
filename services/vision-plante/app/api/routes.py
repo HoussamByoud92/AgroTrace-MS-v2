@@ -93,7 +93,7 @@ async def get_fields(user_id: int = None, db: Session = Depends(get_db)):
     try:
         # Test database connection first
         try:
-            test_query = db.execute("SELECT COUNT(*) FROM fields")
+            test_query = db.execute(text("SELECT COUNT(*) FROM fields"))
             total_fields = test_query.scalar()
             logger.info(f"Database connection test: {total_fields} total fields in database")
         except Exception as db_error:
@@ -278,18 +278,15 @@ async def detect_crop_stress(
 async def get_analyses(field_id: int = None, user_id: int = 2, db: Session = Depends(get_db)):
     """Get analyzed images and detections"""
     try:
-        query = db.query(AnalyzedImage)
+        # Join with Field to get field names
+        query = db.query(AnalyzedImage, Field.name).join(Field, AnalyzedImage.field_id == Field.id)
         if field_id:
             query = query.filter(AnalyzedImage.field_id == field_id)
-        
-        # TODO: Filter by user_id if we want to restrict to user's fields
-        # fields = db.query(Field.id).filter(Field.user_id == user_id).subquery()
-        # query = query.filter(AnalyzedImage.field_id.in_(fields))
         
         analyses = query.all()
         
         results = []
-        for img in analyses:
+        for img, field_name in analyses:
             detections = db.query(DetectionModel).filter(DetectionModel.image_id == img.id).all()
             
             stressed_detections = [d for d in detections if d.class_name in ['stressed', 'st']]
@@ -308,15 +305,6 @@ async def get_analyses(field_id: int = None, user_id: int = 2, db: Session = Dep
                 point = to_shape(img.location)
                 lat, lng = point.y, point.x
                 
-            # Get annotated image URL
-            # Note: The stored path is MinIO path "bucket/file", we need full URL
-            # Or if it's just filename, get_file_url handles it.
-            # Assuming minio_service.get_file_url works with the stored path segment
-            # Actually upload_file returns just the object name usually? 
-            # Let's check minio_service.py if unsure, but for now assume it takes filename
-            # The code in detect uses `annotated_filename` which is just "annotated_uuid.jpg".
-            # The DB stores `annotated_image_path`.
-            # We'll use the DB value.
             image_url = minio_service.get_file_url(img.annotated_image_path)
             
             results.append({
@@ -327,7 +315,8 @@ async def get_analyses(field_id: int = None, user_id: int = 2, db: Session = Dep
                 "imageName": img.filename,
                 "previewUrl": image_url,
                 "count": len(stressed_detections),
-                "fieldId": img.field_id
+                "fieldId": img.field_id,
+                "fieldName": field_name
             })
             
         return results
