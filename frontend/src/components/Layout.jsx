@@ -85,7 +85,7 @@ export default function Layout() {
                     <h1 className="text-lg font-semibold text-gray-700">
                         {location.pathname === '/' ? 'Overview' :
                             location.pathname === '/vision-map' ? 'Crop Stress Detection' :
-                                location.pathname === '/irrigation-reco' ? 'Irrigation Recognition' :
+                                location.pathname === '/irrigation-reco' ? 'Irrigation Recomendation' :
                                     location.pathname === '/sensors' ? 'Sensor Ingestion Control' :
                                         location.pathname === '/databases' ? 'Databases' : 'Overview'}
                     </h1>
