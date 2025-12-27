@@ -5,14 +5,16 @@ AgroTrace-MS v2 is a microservices-based smart agriculture platform designed to 
 
 The platform follows a decentralized microservices architecture, relying on REST communication and event-driven processing. Service discovery is handled using Netflix Eureka, while data exchange and processing are coordinated through Apache Kafka. The analytical layer combines time-series forecasting, object detection, and agronomic rules.
 
-System Architecture
+System Architecture:
 
 The platform is composed of independent microservices, each responsible for a specific functional domain. Services communicate through REST APIs and Kafka topics. Service discovery is handled dynamically at runtime using Netflix Eureka; however, the architectural diagrams focus on logical interactions rather than infrastructure-level discovery mechanisms.
 
 <img width="911" height="824" alt="image" src="https://github.com/user-attachments/assets/2dd4977f-be73-4f8e-9c3a-d015b91c3f30" />
 
 
-Core Infrastructure Components
+
+
+Core Infrastructure Components:
 
 API Gateway (Nginx)
 Central entry point for external requests and frontend access.
@@ -71,14 +73,18 @@ UAV Imaging System
 <img width="473" height="763" alt="image" src="https://github.com/user-attachments/assets/82296be6-0ed9-4fed-9db1-3d454e25cae2" />
 
 
-Process Modeling
+
+
+Process Modeling:
 
 The operational workflows of the system are modeled using BPMN to describe data ingestion, analysis, and recommendation generation processes.
 
 <img width="477" height="1002" alt="image" src="https://github.com/user-attachments/assets/ee843bdb-5609-44f2-a75f-c04d55ddb400" />
 
 
-Technology Stack
+
+
+Technology Stack:
 
 Backend: FastAPI (Python), Spring Boot (Java)
 
@@ -92,7 +98,7 @@ Service Discovery: Spring Cloud Netflix Eureka
 
 Data & Messaging: PostgreSQL/PostGIS, TimescaleDB, Apache Kafka, MinIO
 
-Experimental Results
+Experimental Results:
 
 LSTM Mean Absolute Error (MAE): 2.34 mm
 
@@ -100,8 +106,8 @@ Water Requirement Prediction Accuracy: 93.1%
 
 YOLOv11 Inference Time: < 500 ms per image tile
 
-Deployment and Execution
-Prerequisites
+Deployment and Execution:
+Prerequisites:
 
 Docker and Docker Compose
 
@@ -109,12 +115,12 @@ Node.js (required only for frontend development using npm run dev)
 
 Python 3.10+ (for local backend development)
 
-Execution
+Execution:
 git clone https://github.com/HoussamByoud92/AgroTrace-MS-v2.git
 cd AgroTrace-MS-v2
 docker-compose up --build
 
-Access Points
+Access Points:
 
 Frontend: http://localhost:3000
 
@@ -122,7 +128,7 @@ Eureka Dashboard: http://localhost:8761
 
 MinIO Console: http://localhost:9001
 
-Authors
+Authors:
 
 Wadii BOUTOU
 
