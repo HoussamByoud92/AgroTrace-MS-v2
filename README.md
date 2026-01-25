@@ -128,6 +128,12 @@ Eureka Dashboard: http://localhost:8761
 
 MinIO Console: http://localhost:9001
 
+
+
+https://github.com/user-attachments/assets/cb5619ac-9a80-44f9-ab10-76b29e1f7f9d
+
+
+
 Authors:
 
 Wadii BOUTOU
